@@ -1135,6 +1135,13 @@ widget.bind(SC.Widget.Events.READY, () => {
         }
     });
 
+    widget.bind(SC.Widget.Events.SEEK, () => {
+        if (isDJ) {
+            console.log("DJ: Seek event, broadcasting instantly...");
+            emitDJUpdate();
+        }
+    });
+
     // Still keep a low-frequency pulse for drift correction
     setInterval(() => {
         if (isDJ) emitDJUpdate();
