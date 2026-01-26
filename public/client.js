@@ -189,8 +189,9 @@ setInterval(() => {
 socket.on('userUpdate', (users) => {
     if (!usersContainer) return;
 
-    // Convert array to object for faster lookups during partial updates
-    if (!currentRoomState.users) currentRoomState.users = {};
+    // FULL SYNC: Clear in-memory users and rebuild from server truth
+    // This ensures disconnected users are purged from the UI
+    currentRoomState.users = {};
     users.forEach(u => {
         currentRoomState.users[u.id] = u;
     });
