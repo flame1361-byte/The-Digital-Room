@@ -1013,7 +1013,11 @@ loadTrackBtn.onclick = () => {
     if (url && isDJ) {
         widget.load(url, {
             auto_play: true,
-            callback: () => widget.setVolume(volume)
+            callback: () => {
+                widget.setVolume(volume);
+                // Instant update for the room
+                emitDJUpdate();
+            }
         });
         trackUrlInput.value = '';
     }
@@ -1024,12 +1028,30 @@ claimDjBtn.onclick = () => {
     socket.emit('requestDJ');
 };
 
+function emitDJUpdate() {
+    if (!isDJ || !widget) return;
+
+    widget.isPaused((paused) => {
+        widget.getPosition((pos) => {
+            widget.getCurrentSound((sound) => {
+                socket.emit('djUpdate', {
+                    track: sound ? sound.permalink_url : currentRoomState.currentTrack,
+                    isPlaying: !paused,
+                    seekPosition: pos,
+                    theme: currentRoomState.currentTheme
+                });
+                if (sound) currentTrackLabel.textContent = sound.title || sound.permalink_url;
+            });
+        });
+    });
+}
+
 function syncWithDJ(state) {
     if (syncLock || !state.currentTrack) return;
     syncLock = true;
 
     // Latency compensation: Calculate how old the update is
-    const packetAge = state.lastUpdateAt ? (Date.now() - state.lastUpdateAt) : 0;
+    const packetAge = state.serverTime ? (Date.now() - state.serverTime) : 0;
     const targetPos = state.isPlaying ? (state.seekPosition + packetAge) : state.seekPosition;
 
     widget.getCurrentSound((sound) => {
@@ -1044,6 +1066,7 @@ function syncWithDJ(state) {
                     widget.setVolume(volume); // Maintain local volume
                     currentTrackLabel.textContent = state.currentTrack;
                     console.log(`[SYNC] Track loaded and compensated to ${targetPos}ms (Vol: ${volume}%)`);
+                    syncLock = false;
                 }
             });
         } else {
@@ -1066,8 +1089,8 @@ function syncWithDJ(state) {
                     widget.pause();
                 }
             });
+            syncLock = false;
         }
-        syncLock = false;
     });
 }
 
@@ -1077,32 +1100,38 @@ widget.bind(SC.Widget.Events.READY, () => {
     console.log('SC Widget Ready');
     widget.setVolume(volume); // Ensure volume is applied on ready
 
-    // Enforcement for listeners: If they try to pause while DJ is playing, resume it
-    widget.bind(SC.Widget.Events.PAUSE, () => {
-        if (!isDJ && currentRoomState.isPlaying) {
-            console.log('Sync Enforcement: Resuming playback...');
-            widget.play();
+    // DJ Bindings: Instant Event-Driven Broadcasts
+    widget.bind(SC.Widget.Events.PLAY, () => {
+        if (isDJ) {
+            console.log("DJ: Play event, broadcasting...");
+            emitDJUpdate();
         }
     });
 
-    // Only DJ sends updates - Throttled to 2.5s for tunnel stability
-    setInterval(() => {
+    widget.bind(SC.Widget.Events.PAUSE, () => {
         if (isDJ) {
-            widget.isPaused((paused) => {
-                widget.getPosition((pos) => {
-                    widget.getCurrentSound((sound) => {
-                        socket.emit('djUpdate', {
-                            track: sound ? sound.permalink_url : currentRoomState.currentTrack,
-                            isPlaying: !paused,
-                            seekPosition: pos,
-                            theme: currentRoomState.currentTheme // Always include current room aesthetic
-                        });
-                        if (sound) currentTrackLabel.textContent = sound.title || sound.permalink_url;
-                    });
-                });
-            });
+            console.log("DJ: Pause event, broadcasting...");
+            emitDJUpdate();
+        } else {
+            // Enforcement for listeners: If they try to pause while DJ is playing, resume it
+            if (currentRoomState.isPlaying) {
+                console.log('Sync Enforcement: Resuming playback...');
+                widget.play();
+            }
         }
-    }, 1000); // 1.0 second sync pulse (Zero-Lag Mode)
+    });
+
+    widget.bind(SC.Widget.Events.FINISH, () => {
+        if (isDJ) {
+            console.log("DJ: Track finished, broadcasting new state...");
+            emitDJUpdate();
+        }
+    });
+
+    // Still keep a low-frequency pulse for drift correction
+    setInterval(() => {
+        if (isDJ) emitDJUpdate();
+    }, 5000);
 });
 
 function updateUI() {
