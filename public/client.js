@@ -476,49 +476,22 @@ const presets = [
 ];
 
 const applyPreset = (theme) => {
-    if (theme.premium && !currentUser.hasThemePack) {
-        return alert("💎 This theme requires THEME PACK EXTRA!");
-    }
     applyTheme({ ...theme, bgImage: '' }, true);
     addSystemMessage(`Room theme set to: ${theme.name}`);
 };
 
-const claimThemePackBtn = document.getElementById('claim-theme-pack-btn');
-if (claimThemePackBtn) {
-    claimThemePackBtn.onclick = async () => {
-        const originalText = claimThemePackBtn.textContent;
-        claimThemePackBtn.textContent = 'SYNCING...';
-        socket.emit('unlockThemePack', { token: currentUser.token }, (res) => {
-            if (res.success) {
-                currentUser.hasThemePack = true;
-                initThemeGallery();
-                document.getElementById('premium-theme-shop').style.display = 'none';
-                alert("💎 THEME PACK EXTRA UNLOCKED! Enjoy the elite vibes.");
-            } else {
-                claimThemePackBtn.textContent = originalText;
-                alert(res.error || "Failed to unlock theme pack.");
-            }
-        });
-    };
-}
 
 function initThemeGallery() {
     if (!themesGrid) return;
     themesGrid.innerHTML = '';
 
-    // Hide shop if already owned
-    const themeShop = document.getElementById('premium-theme-shop');
-    if (themeShop) themeShop.style.display = (currentUser && currentUser.hasThemePack) ? 'none' : 'block';
-
     presets.forEach(theme => {
-        const isLocked = theme.premium && (!currentUser || !currentUser.hasThemePack);
         const card = document.createElement('div');
         card.className = 'theme-card';
         card.dataset.theme = theme.name;
-        if (isLocked) card.style.opacity = '0.6';
 
         card.innerHTML = `
-            <div class="theme-card-title">${isLocked ? '🔒 ' : ''}${theme.name}</div>
+            <div class="theme-card-title">${theme.name}</div>
             <div class="theme-card-palette">
                 <div class="palette-strip" style="background: ${theme.bg};"></div>
                 <div class="palette-strip" style="background: ${theme.panel};"></div>
@@ -528,9 +501,6 @@ function initThemeGallery() {
         `;
 
         card.onclick = () => {
-            if (isLocked) {
-                return alert("💎 This theme is part of THEME PACK EXTRA!");
-            }
             applyPreset(theme);
             const cards = themesGrid.querySelectorAll('.theme-card');
             cards.forEach(c => c.classList.remove('active'));
