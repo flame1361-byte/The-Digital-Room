@@ -740,6 +740,22 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Master Theme Change (Owner Only)
+    socket.on('adminChangeTheme', (data) => {
+        const user = roomState.users[socket.id];
+        if (user && user.name === ADMIN_USER) {
+            console.log(`[ADMIN] ${user.name} changed the room theme.`);
+            roomState.currentTheme = data.theme;
+            roomState.lastUpdateAt = Date.now();
+
+            // Broadcast immediately to everyone
+            io.emit('roomUpdate', {
+                ...roomState,
+                serverTime: roomState.lastUpdateAt
+            });
+        }
+    });
+
     socket.on('reportPing', (ping) => {
         if (roomState.users[socket.id]) {
             roomState.users[socket.id].ping = ping;

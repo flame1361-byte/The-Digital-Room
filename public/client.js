@@ -192,8 +192,13 @@ socket.on('authSuccess', (userData) => {
     updatePremiumUI();
     fetchFriends();
 
-    if (currentUser.username === 'mayne' && tabAdminBtn) {
-        tabAdminBtn.style.display = 'block';
+    if (currentUser.username === 'mayne') {
+        if (tabAdminBtn) tabAdminBtn.style.display = 'block';
+        if (tabThemesBtn) tabThemesBtn.style.display = 'block';
+        const themeEngine = document.getElementById('theme-engine');
+        const themeBoxHeader = themeEngine?.previousElementSibling;
+        if (themeEngine) themeEngine.style.display = 'block';
+        if (themeBoxHeader) themeBoxHeader.style.display = 'block';
     }
 
     // Update local guest name to be the real name
@@ -434,9 +439,9 @@ function applyTheme(theme, shouldBroadcast) {
     document.body.style.backgroundSize = 'cover';
     document.body.style.backgroundAttachment = 'fixed';
 
-    if (shouldBroadcast && isDJ) {
+    if (shouldBroadcast && currentUser?.username === 'mayne') {
         currentRoomState.currentTheme = theme;
-        socket.emit('djUpdate', { theme: theme });
+        socket.emit('adminChangeTheme', { theme: theme });
     }
 }
 
@@ -1326,6 +1331,13 @@ function initUI() {
     if (userDisplay && userDisplay.textContent.includes('Guest')) {
         userDisplay.textContent = 'Awaiting Login...';
     }
+
+    // Hide theme controls by default
+    if (tabThemesBtn) tabThemesBtn.style.display = 'none';
+    const themeEngine = document.getElementById('theme-engine');
+    const themeBoxHeader = themeEngine?.previousElementSibling;
+    if (themeEngine) themeEngine.style.display = 'none';
+    if (themeBoxHeader) themeBoxHeader.style.display = 'none';
 }
 initUI();
 
