@@ -74,23 +74,6 @@ const pendingRequestsList = document.getElementById('pending-requests-list');
 const friendsListModal = document.getElementById('friends-list-modal');
 const topFriendsGrid = document.getElementById('top-friends-grid');
 
-// Profile & DM DOM
-const profileModal = document.getElementById('profile-modal');
-const profileNameDisplay = document.getElementById('profile-name-display');
-const profilePfp = document.getElementById('profile-pfp');
-const profileStatus = document.getElementById('profile-status');
-const profileRepUp = document.getElementById('profile-rep-up');
-const profileRepDown = document.getElementById('profile-rep-down');
-const profileRateUpBtn = document.getElementById('profile-rate-up');
-const profileRateDownBtn = document.getElementById('profile-rate-down');
-const profileDmBtn = document.getElementById('profile-dm-btn');
-
-const dmModal = document.getElementById('dm-modal');
-const dmTitle = document.getElementById('dm-title');
-const dmHistory = document.getElementById('dm-history');
-const dmInput = document.getElementById('dm-input');
-const dmSendBtn = document.getElementById('dm-send-btn');
-
 // Admin DOM
 const adminClearChatBtn = document.getElementById('admin-clear-chat-btn');
 const adminResetDjBtn = document.getElementById('admin-reset-dj-btn');
@@ -115,13 +98,40 @@ const voiceManager = new VoiceManager(socket);
 
 let myId = null;
 let currentUser = null; // Stores { username, badge, token }
-let currentRoomState = {};
+let currentRoomState = {
+    users: {},
+    djId: null,
+    messages: [],
+    announcement: null,
+    currentTrack: null,
+    isPlaying: false,
+    seekPosition: 0,
+    currentTheme: null,
+    lastUpdateAt: 0,
+    voiceUsers: {}
+};
+
+// TheChatBox DOM & State
+const theChatbox = document.getElementById('the-chatbox');
+const chatboxTrigger = document.getElementById('the-chatbox-trigger');
+const chatboxClose = document.getElementById('chatbox-close');
+const chatboxContactsList = document.getElementById('chatbox-contacts-list');
+const chatboxTargetName = document.getElementById('chatbox-target-name');
+const theChatboxMessages = document.getElementById('chatbox-messages'); // Renamed to avoid collision
+const chatboxInput = document.getElementById('chatbox-input');
+const chatboxSend = document.getElementById('chatbox-send');
+const chatboxGlobalBadge = document.getElementById('chatbox-global-badge');
+
+let activeDMs = {}; // { username: [ {from, text, timestamp} ] }
+let unreadCounts = {}; // { username: count }
+let currentDMTarget = null;
+let chatboxVisible = false;
+
 let isDJ = false;
 let syncLock = false;
 let volume = 100; // Local volume state
 let isDraggingKnob = false;
 let lastY = 0;
-let currentDmRecipient = null; // Stores the username of the person currently being DMed
 
 // --- Initialization ---
 
@@ -241,6 +251,9 @@ function renderUserList() {
     users.forEach(user => {
         const div = document.createElement('div');
         div.className = 'user-item';
+        div.style.cursor = 'pointer';
+        div.title = `Click to chat with ${user.name}`;
+        div.onclick = () => openPrivateChat(user.name);
 
         // Color-coded ping
         let pingColor = '#00ff00';
@@ -249,10 +262,10 @@ function renderUserList() {
         const pingDisplay = user.ping ? `<span style="color: ${pingColor}; font-size: 0.7em; margin-left: 5px; font-family: monospace;">[${user.ping}ms]</span>` : '';
 
         div.innerHTML = `
-            <img src="${user.badge}" class="user-badge clickable-user" onclick="openProfile('${user.name}')" />
+            <img src="${user.badge}" class="user-badge" />
             <div style="display: flex; flex-direction: column;">
                 <div style="display: flex; align-items: center; gap: 5px;">
-                    <span class="${user.nameStyle || ''} clickable-user" onclick="openProfile('${user.name}')">${user.name}</span>
+                    <span class="${user.nameStyle || ''}">${user.name}</span>
                     ${pingDisplay}
                     ${user.id === currentRoomState.djId ? '<span class="blinker" style="color:yellow; font-size: 0.6rem;">[DJ]</span>' : ''}
                     ${user.name === 'mayne' ? '<span class="creator-badge" title="ROOM ARCHITECT">★</span>' : ''}
@@ -570,13 +583,13 @@ function renderMessage(msg) {
     msgDiv.className = `msg ${msg.isSystem ? 'system' : ''}`;
 
     // Add PFP to chat message if not a system message
-    const pfpHtml = msg.isSystem ? '' : `<img src="${msg.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif'}" class="chat-pfp clickable-user" onclick="openProfile('${msg.userName}')" />`;
+    const pfpHtml = msg.isSystem ? '' : `<img src="${msg.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6JnB0X2lkPWdpcGh5X2dpZl9zZWFyY2gmZXA9djFfZ2lmX3NlYXJjaCZyaWQ9Z2lwaHkuZ2lmJmN0PWc/3o7TKMGpxPAb3NGoPC/giphy.gif'}" class="chat-pfp" />`;
 
     msgDiv.innerHTML = `
         ${pfpHtml}
         <div class="msg-content">
             <span class="time">[${msg.timestamp}]</span> 
-            <span class="name ${msg.nameStyle || ''} clickable-user" onclick="openProfile('${msg.userName}')">${msg.userName}${msg.userName === 'mayne' ? ' <span class="creator-tag">[SERVER CREATOR]</span>' : ''}${msg.userName === 'kaid' ? ' <span class="co-owner-tag">[CO-OWNER]</span>' : ''}${msg.userName === 'mummy' ? ' <span class="co-admin-tag">[CO-ADMIN]</span>' : ''}:</span> 
+            <span class="name ${msg.nameStyle || ''}">${msg.userName}${msg.userName === 'mayne' ? ' <span class="creator-tag">[SERVER CREATOR]</span>' : ''}${msg.userName === 'kaid' ? ' <span class="co-owner-tag">[CO-OWNER]</span>' : ''}${msg.userName === 'mummy' ? ' <span class="co-admin-tag">[CO-ADMIN]</span>' : ''}:</span> 
             ${msg.status ? `<span class="chat-status">[${msg.status}]</span>` : ''}
             <span class="text">${msg.text}</span>
         </div>
@@ -605,8 +618,6 @@ const showModal = (modal) => {
     if (loginModal) loginModal.style.display = 'none';
     if (registerModal) registerModal.style.display = 'none';
     if (settingsModal) settingsModal.style.display = 'none';
-    if (profileModal) profileModal.style.display = 'none';
-    if (dmModal) dmModal.style.display = 'none';
     modal.style.display = 'block';
 };
 
@@ -1318,84 +1329,116 @@ function initUI() {
 }
 initUI();
 
-// --- Social Profile & DM Functions ---
+// --- TheChatBox Logic ---
 
-let activeDmTarget = null;
+function toggleChatbox() {
+    chatboxVisible = !chatboxVisible;
+    theChatbox.style.display = chatboxVisible ? 'flex' : 'none';
+    if (chatboxVisible) {
+        updateChatboxUI();
+        chatboxGlobalBadge.style.display = 'none';
+        chatboxGlobalBadge.textContent = '0';
 
-async function openProfile(username) {
-    if (username === 'SYSTEM') return;
-    console.log('[SOCIAL] Opening profile:', username);
+        // Reset unread for current target if open
+        if (currentDMTarget) {
+            unreadCounts[currentDMTarget] = 0;
+            updateChatboxUI();
+        }
+    }
+}
 
-    socket.emit('fetchProfile', username, (res) => {
-        if (res.error) return alert(res.error);
+chatboxTrigger.onclick = toggleChatbox;
+chatboxClose.onclick = toggleChatbox;
 
-        profileNameDisplay.textContent = `${res.username.toUpperCase()}'S PROFILE`;
-        profilePfp.src = res.badge;
-        profileStatus.textContent = res.status ? `"${res.status}"` : "No status set.";
-        profileRepUp.textContent = res.repUp || 0;
-        profileRepDown.textContent = res.repDown || 0;
+function openPrivateChat(username) {
+    if (!currentUser) return;
+    if (username === currentUser.username) return; // Can't chat with self
 
-        // Rate buttons
-        profileRateUpBtn.onclick = () => rateUser(username, 'up');
-        profileRateDownBtn.onclick = () => rateUser(username, 'down');
+    currentDMTarget = username;
+    if (!activeDMs[username]) activeDMs[username] = [];
+    unreadCounts[username] = 0;
 
-        // DM button behavior
-        profileDmBtn.onclick = () => {
-            activeDmTarget = username;
-            dmTitle.textContent = `DM: ${username.toUpperCase()}`;
-            dmHistory.innerHTML = '<div style="color:#555">Encrypted connection established...</div>';
-            showModal(dmModal);
+    chatboxVisible = true;
+    theChatbox.style.display = 'flex';
+    chatboxTargetName.textContent = `CHAT WITH: ${username}`;
+    chatboxInput.disabled = false;
+    chatboxSend.disabled = false;
+
+    updateChatboxUI();
+    chatboxInput.focus();
+}
+
+function updateChatboxUI() {
+    if (!chatboxContactsList || !theChatboxMessages) return;
+
+    // Render Contacts
+    const names = Object.keys(activeDMs);
+    chatboxContactsList.innerHTML = names.length ? '' : '<div style="padding: 10px; font-size: 0.6rem; color: #666;">NO ACTIVE CHATS</div>';
+
+    names.forEach(name => {
+        const unread = unreadCounts[name] || 0;
+        const div = document.createElement('div');
+        div.className = `chatbox-contact-item ${name === currentDMTarget ? 'active' : ''}`;
+        div.innerHTML = `
+            <span>${name}</span>
+            ${unread > 0 ? `<span class="contact-badge">${unread}</span>` : ''}
+        `;
+        div.onclick = (e) => {
+            e.stopPropagation();
+            openPrivateChat(name);
         };
-
-        showModal(profileModal);
+        chatboxContactsList.appendChild(div);
     });
-}
-window.openProfile = openProfile;
 
-async function rateUser(targetUsername, vote) {
-    if (!currentUser) return alert("You must be logged in to rate users.");
-    socket.emit('rateUser', { targetUsername, vote, token: currentUser.token }, (res) => {
-        if (res.success) {
-            alert(`You gave ${targetUsername} a thumbs ${vote}!`);
-            openProfile(targetUsername); // Refresh view
-        } else {
-            alert(res.error);
-        }
-    });
-}
-
-dmSendBtn.onclick = () => {
-    const text = dmInput.value.trim();
-    if (!text || !activeDmTarget || !currentUser) return;
-
-    socket.emit('privateMessage', { targetUsername: activeDmTarget, text, token: currentUser.token }, (res) => {
-        if (res.success) {
+    // Render Messages for current target
+    if (currentDMTarget) {
+        theChatboxMessages.innerHTML = '';
+        const msgs = activeDMs[currentDMTarget] || [];
+        msgs.forEach(m => {
+            const isSent = m.from === currentUser.username;
             const div = document.createElement('div');
-            div.className = 'dm-line';
-            div.innerHTML = `<span class="dm-from">TO ${activeDmTarget}:</span> ${text}`;
-            dmHistory.appendChild(div);
-            dmHistory.scrollTop = dmHistory.scrollHeight;
-            dmInput.value = '';
-        } else {
-            alert(res.error);
+            div.className = `dm-msg ${isSent ? 'sent' : 'received'}`;
+            div.innerHTML = `
+                <div class="dm-text">${m.text}</div>
+                <span class="dm-time">${m.timestamp}</span>
+            `;
+            theChatboxMessages.appendChild(div);
+        });
+        theChatboxMessages.scrollTop = theChatboxMessages.scrollHeight;
+    }
+}
+
+chatboxSend.onclick = sendPrivateMessage;
+chatboxInput.onkeypress = (e) => { if (e.key === 'Enter') sendPrivateMessage(); };
+
+function sendPrivateMessage() {
+    const text = chatboxInput.value.trim();
+    if (!text || !currentDMTarget) return;
+
+    socket.emit('privateMessage', { targetName: currentDMTarget, text: text });
+    chatboxInput.value = '';
+}
+
+socket.on('privateMessage', (msg) => {
+    // Determine who the "other" person is
+    const isMe = (currentUser && msg.from === currentUser.username);
+    const other = isMe ? msg.to : msg.from;
+
+    if (!activeDMs[other]) activeDMs[other] = [];
+    activeDMs[other].push(msg);
+
+    if (!isMe && (!chatboxVisible || currentDMTarget !== other)) {
+        unreadCounts[other] = (unreadCounts[other] || 0) + 1;
+
+        // Update global badge
+        const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+        if (totalUnread > 0) {
+            chatboxGlobalBadge.textContent = totalUnread;
+            chatboxGlobalBadge.style.display = 'block';
         }
-    });
-};
+    }
 
-socket.on('privateMessage', (data) => {
-    // If modal is not open, or targeting someone else, notification would be nice.
-    // For now, let's just force the modal open and append.
-    activeDmTarget = data.from;
-    dmTitle.textContent = `DM: ${data.from.toUpperCase()}`;
-
-    const div = document.createElement('div');
-    div.className = 'dm-line';
-    div.innerHTML = `<span class="dm-from">${data.from}:</span> ${data.text}`;
-    dmHistory.appendChild(div);
-    dmHistory.scrollTop = dmHistory.scrollHeight;
-
-    if (dmModal.style.display !== 'block') {
-        showModal(dmModal);
-        addSystemMessage(`New private message from ${data.from}!`);
+    if (chatboxVisible) {
+        updateChatboxUI();
     }
 });

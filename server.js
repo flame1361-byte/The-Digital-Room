@@ -366,10 +366,7 @@ io.on('connection', (socket) => {
                 hasPremiumPack: false,
                 hasThemePack: false, // Theme Pack Extra
                 friends: [],
-                pendingRequests: [],
-                repUp: 0,
-                repDown: 0,
-                voters: []
+                pendingRequests: []
             });
             console.log(`[SOCKET-AUTH] Registration success: ${username}`);
             callback({ success: true, message: 'User registered! Please login.' });
@@ -397,8 +394,7 @@ io.on('connection', (socket) => {
                     hasPremiumPack: user.hasPremiumPack || false,
                     hasThemePack: user.hasThemePack || false,
                     friends: user.friends || [],
-                    pendingRequests: user.pendingRequests || [],
-                    reputation: { up: user.repUp || 0, down: user.repDown || 0 }
+                    pendingRequests: user.pendingRequests || []
                 }
             });
         } catch (err) {
@@ -636,6 +632,37 @@ io.on('connection', (socket) => {
         io.emit('newMessage', messageData);
     });
 
+    // --- TheChatBox: Direct Messaging ---
+    socket.on('privateMessage', ({ targetName, text }) => {
+        const sender = roomState.users[socket.id];
+        if (!sender || !sender.isAuthenticated) return;
+
+        console.log(`[CHATBOX] ${sender.name} -> ${targetName}: ${text}`);
+
+        const msgData = {
+            from: sender.name,
+            to: targetName,
+            text: text,
+            timestamp: new Date().toLocaleTimeString()
+        };
+
+        // Find all sockets for targetName (multi-tab support)
+        const targetSockets = Object.values(roomState.users)
+            .filter(u => u.name === targetName)
+            .map(u => u.id);
+
+        // Find all sockets for sender (multi-tab sync)
+        const senderSockets = Object.values(roomState.users)
+            .filter(u => u.name === sender.name)
+            .map(u => u.id);
+
+        // Deliver to recipient(s)
+        targetSockets.forEach(sid => io.to(sid).emit('privateMessage', msgData));
+
+        // Deliver to sender(s) so sent messages show up in all tabs
+        senderSockets.forEach(sid => io.to(sid).emit('privateMessage', msgData));
+    });
+
     socket.on('changeName', (newName) => {
         const user = roomState.users[socket.id];
         if (user && user.isAuthenticated) {
@@ -798,75 +825,6 @@ io.on('connection', (socket) => {
             roomState.voiceUsers[socket.id].muted = state.muted;
             roomState.voiceUsers[socket.id].deafened = state.deafened;
             io.emit('voice-update', Object.values(roomState.voiceUsers));
-        }
-    });
-
-    // --- Social Profile & Rep Events ---
-    socket.on('fetchProfile', async (username, callback) => {
-        try {
-            const user = await usersDb.findOne({ username });
-            if (!user) return callback({ error: 'User not found' });
-
-            callback({
-                username: user.username,
-                badge: user.badge,
-                nameStyle: user.nameStyle,
-                status: user.status || '',
-                repUp: user.repUp || 0,
-                repDown: user.repDown || 0,
-                hasPremiumPack: user.hasPremiumPack || false,
-                hasThemePack: user.hasThemePack || false
-            });
-        } catch (err) {
-            callback({ error: 'Failed to fetch profile' });
-        }
-    });
-
-    socket.on('rateUser', async ({ targetUsername, vote, token }, callback) => {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            const voter = await usersDb.findOne({ _id: decoded.id });
-            if (!voter) return callback({ error: 'Voter not found' });
-            if (voter.username === targetUsername) return callback({ error: 'Cannot rate yourself' });
-
-            const target = await usersDb.findOne({ username: targetUsername });
-            if (!target) return callback({ error: 'Target user not found' });
-
-            const voters = target.voters || [];
-            if (voters.includes(voter.username)) return callback({ error: 'You have already voted for this user' });
-
-            let update = { $push: { voters: voter.username } };
-            if (vote === 'up') update.$inc = { repUp: 1 };
-            if (vote === 'down') update.$inc = { repDown: 1 };
-
-            await usersDb.update({ username: targetUsername }, update);
-            console.log(`[REP] ${voter.username} voted ${vote} for ${targetUsername}`);
-            callback({ success: true });
-        } catch (err) {
-            callback({ error: 'Rating failed' });
-        }
-    });
-
-    socket.on('privateMessage', async ({ targetUsername, text, token }, callback) => {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            const sender = roomState.users[socket.id];
-            if (!sender) return callback({ error: 'Sender not authenticated' });
-
-            const targetEntry = Object.values(roomState.users).find(u => u.name === targetUsername);
-            if (!targetEntry) return callback({ error: 'User is not online' });
-
-            const pmData = {
-                from: sender.name,
-                fromBadge: sender.badge,
-                text: text,
-                timestamp: new Date().toLocaleTimeString()
-            };
-
-            io.to(targetEntry.id).emit('privateMessage', pmData);
-            callback({ success: true });
-        } catch (err) {
-            callback({ error: 'DM failed' });
         }
     });
 });
