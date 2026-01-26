@@ -42,7 +42,36 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 
 // Force DB Load on start
-usersDb.load().then(() => console.log("[DB] Users database loaded and ready."));
+usersDb.load()
+    .then(() => console.log("[DB] Users database loaded and ready."))
+    .then(() => seedStaff())
+    .catch(err => console.error("[DB] Failed to load:", err));
+
+async function seedStaff() {
+    try {
+        let staffData;
+        try {
+            staffData = require('./staffData');
+        } catch (e) {
+            console.log('[Seed] No staffData.js found, skipping seed.');
+            return;
+        }
+
+        console.log('[Seed] Verifying staff accounts...');
+        for (const user of staffData) {
+            const existing = await usersDb.findOne({ username: user.username });
+            if (!existing) {
+                // Remove _id to let db assign a new one, or keep it if we want ID persistence (nedb preserves it if valid)
+                // However, user data from extract already has _id. NeDB usually accepts provided _id.
+                await usersDb.insert(user);
+                console.log(`[Seed] Restored staff member: ${user.username}`);
+            }
+        }
+        console.log('[Seed] Staff verification complete.');
+    } catch (err) {
+        console.error('[Seed] Error during seeding:', err);
+    }
+}
 
 // Periodic cleanup: ensures djId isn't pointing to a ghost session
 setInterval(() => {
