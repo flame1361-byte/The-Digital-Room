@@ -1,0 +1,1226 @@
+// --- Global Catch to prevent "Nothing Happens" bugs ---
+window.onerror = function (msg, url, lineNo, columnNo, error) {
+    console.error('GLOBAL ERROR:', msg, 'at line:', lineNo);
+    // addSystemMessage(`FATAL SCRIPT ERROR: ${msg} (Line ${lineNo})`);
+    return false;
+};
+
+const socket = io({
+    transports: ['websocket', 'polling'],
+    upgrade: true
+});
+
+let widget = null;
+try {
+    const widgetIframe = document.getElementById('sc-widget');
+    if (widgetIframe && typeof SC !== 'undefined') {
+        widget = SC.Widget(widgetIframe);
+    }
+} catch (e) {
+    console.warn("SoundCloud Widget initialization failed:", e);
+}
+
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const sendBtn = document.getElementById('send-btn');
+const usersContainer = document.getElementById('users-container');
+const changeNameBtn = document.getElementById('change-name-btn');
+const claimDjBtn = document.getElementById('claim-dj-btn');
+const djStatus = document.getElementById('dj-status');
+const djToolset = document.getElementById('dj-toolset');
+const trackUrlInput = document.getElementById('track-url-input');
+const loadTrackBtn = document.getElementById('load-track-btn');
+const volumeKnob = document.getElementById('volume-knob');
+const knobIndicator = document.querySelector('.knob-indicator');
+const volumePct = document.getElementById('volume-pct');
+const currentTrackLabel = document.getElementById('current-track-name');
+const currentDjLabel = document.getElementById('current-dj-name');
+
+// Theme Engine Elements
+const themeUploader = document.getElementById('theme-uploader');
+const uploadTriggerBtn = document.getElementById('upload-trigger-btn');
+const applyThemeBtn = document.getElementById('apply-theme-btn');
+const themePreview = document.getElementById('theme-preview');
+const themesGrid = document.getElementById('themes-grid-modal');
+const tabThemes = document.getElementById('tab-themes');
+const tabThemesBtn = document.getElementById('tab-themes-btn');
+const tabAdmin = document.getElementById('tab-admin');
+const tabAdminBtn = document.getElementById('tab-admin-btn');
+const tabProfile = document.getElementById('tab-profile');
+const tabProfileBtn = document.getElementById('tab-profile-btn');
+const tabSocial = document.getElementById('tab-social');
+const tabSocialBtn = document.getElementById('tab-social-btn');
+const connStatus = document.getElementById('conn-status');
+
+// Auth DOM
+const modalOverlay = document.getElementById('modal-overlay');
+const loginModal = document.getElementById('login-modal');
+const registerModal = document.getElementById('register-modal');
+const settingsModal = document.getElementById('settings-modal');
+const loginNavBtn = document.getElementById('login-nav-btn');
+const logoutNavBtn = document.getElementById('logout-nav-btn');
+const userDisplay = document.getElementById('user-display');
+const guestPfpPreview = document.getElementById('guest-pfp-preview');
+const nameStyleSelect = document.getElementById('settings-name-style');
+const statusInput = document.getElementById('settings-status');
+const premiumShop = document.getElementById('premium-shop');
+const claimPremiumBtn = document.getElementById('claim-premium-btn');
+
+// Social DOM
+const friendUsernameInput = document.getElementById('friend-username-input');
+const sendFriendRequestBtn = document.getElementById('send-friend-request-btn');
+const pendingRequestsList = document.getElementById('pending-requests-list');
+const friendsListModal = document.getElementById('friends-list-modal');
+const topFriendsGrid = document.getElementById('top-friends-grid');
+
+// Admin DOM
+const adminClearChatBtn = document.getElementById('admin-clear-chat-btn');
+const adminResetDjBtn = document.getElementById('admin-reset-dj-btn');
+const adminUserList = document.getElementById('admin-user-list');
+
+// Announcement DOM
+const announcementBanner = document.getElementById('announcement-banner');
+const adminAnnInput = document.getElementById('admin-ann-input');
+const adminAnnSetBtn = document.getElementById('admin-ann-set-btn');
+const adminAnnClearBtn = document.getElementById('admin-ann-clear-btn');
+
+// Voice DOM
+const voiceJoinBtn = document.getElementById('voice-join-btn');
+const voiceLeaveBtn = document.getElementById('voice-leave-btn');
+const voiceMuteBtn = document.getElementById('voice-mute-btn');
+const voiceDeafenBtn = document.getElementById('voice-deafen-btn');
+const voiceUsersContainer = document.getElementById('voice-users-container');
+const voiceControlsExtra = document.getElementById('voice-controls-extra');
+const voiceInputSelect = document.getElementById('voice-input-select');
+
+const voiceManager = new VoiceManager(socket);
+
+let myId = null;
+let currentUser = null; // Stores { username, badge, token }
+let currentRoomState = {};
+let isDJ = false;
+let syncLock = false;
+let volume = 100; // Local volume state
+let isDraggingKnob = false;
+let lastY = 0;
+
+// --- Initialization ---
+
+socket.on('connect', () => {
+    if (connStatus) {
+        connStatus.textContent = '[ONLINE]';
+        connStatus.style.color = '#00ff00';
+    }
+    console.log('Connected to server');
+});
+
+socket.on('disconnect', () => {
+    if (connStatus) {
+        connStatus.textContent = '[OFFLINE]';
+        connStatus.style.color = '#ff0000';
+    }
+});
+
+socket.on('init', (data) => {
+    console.log('Received init:', data);
+    myId = data.yourId;
+    currentRoomState = data.state;
+    updateUI();
+
+    // Render Chat History
+    if (data.state.messages && chatMessages) {
+        chatMessages.innerHTML = ''; // Clear initial welcome
+        data.state.messages.forEach(msg => renderMessage(msg));
+    }
+
+
+    renderAnnouncement(data.state.announcement);
+
+    // Auto-authenticate if token exists
+    const savedToken = localStorage.getItem('droom_token');
+    if (savedToken) {
+        socket.emit('authenticate', savedToken);
+    }
+
+    // Initial sync
+    if (currentRoomState.currentTrack) {
+        syncWithDJ(currentRoomState);
+    }
+});
+
+socket.on('authSuccess', (userData) => {
+    currentUser = { ...userData, token: localStorage.getItem('droom_token') };
+    if (userDisplay) userDisplay.textContent = `Logged in as: ${currentUser.username}`;
+    if (loginNavBtn) loginNavBtn.style.display = 'none';
+    if (logoutNavBtn) logoutNavBtn.style.display = 'inline-block';
+
+    updatePremiumUI();
+    fetchFriends();
+
+    if (currentUser.username === 'mayne' && tabAdminBtn) {
+        tabAdminBtn.style.display = 'block';
+    }
+
+    // Update local guest name to be the real name
+    socket.emit('changeName', currentUser.username);
+    addSystemMessage(`Authentication successful! Welcome back, ${currentUser.username}.`);
+});
+
+socket.on('authError', (msg) => {
+    localStorage.removeItem('droom_token');
+    addSystemMessage(`Auth Error: ${msg}. Please login again.`);
+});
+
+// --- Ping Measurement ---
+setInterval(() => {
+    const start = Date.now();
+    socket.emit('ping', () => {
+        const latency = Date.now() - start;
+        socket.emit('reportPing', latency);
+    });
+}, 2000); // Check ping every 2 seconds
+
+socket.on('userUpdate', (users) => {
+    if (!usersContainer) return;
+
+    // Convert array to object for faster lookups during partial updates
+    if (!currentRoomState.users) currentRoomState.users = {};
+    users.forEach(u => {
+        currentRoomState.users[u.id] = u;
+    });
+
+    renderUserList();
+});
+
+socket.on('userPartialUpdate', (delta) => {
+    if (!currentRoomState.users || !currentRoomState.users[delta.id]) return;
+
+    // Merge delta into local state
+    currentRoomState.users[delta.id] = { ...currentRoomState.users[delta.id], ...delta };
+
+    // Targeted DOM update would be better, but re-rendering the list is okay for small counts
+    // We throttle this to prevent flickering
+    requestAnimationFrame(renderUserList);
+});
+
+function renderUserList() {
+    if (!usersContainer) return;
+    const users = Object.values(currentRoomState.users || {});
+    usersContainer.innerHTML = '';
+    users.forEach(user => {
+        const div = document.createElement('div');
+        div.className = 'user-item';
+
+        // Color-coded ping
+        let pingColor = '#00ff00';
+        if (user.ping > 120) pingColor = '#ffff00';
+        if (user.ping > 250) pingColor = '#ff0000';
+        const pingDisplay = user.ping ? `<span style="color: ${pingColor}; font-size: 0.7em; margin-left: 5px; font-family: monospace;">[${user.ping}ms]</span>` : '';
+
+        div.innerHTML = `
+            <img src="${user.badge}" class="user-badge" />
+            <div style="display: flex; flex-direction: column;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span class="${user.nameStyle || ''}">${user.name}</span>
+                    ${pingDisplay}
+                    ${user.id === currentRoomState.djId ? '<span class="blinker" style="color:yellow; font-size: 0.6rem;">[DJ]</span>' : ''}
+                    ${user.name === 'mayne' ? '<span class="creator-badge" title="ROOM ARCHITECT">★</span>' : ''}
+                    ${user.name === 'kaid' ? '<span class="co-owner-badge" title="CO-OWNER">♦</span>' : ''}
+                    ${user.name === 'mummy' ? '<span class="co-admin-badge" title="CO-ADMIN">⚡</span>' : ''}
+                </div>
+                ${user.status ? `<div class="user-status-item">“${user.status}”</div>` : ''}
+            </div>
+        `;
+        usersContainer.appendChild(div);
+    });
+}
+
+// Periodically sync friends list presence (throttled)
+setInterval(() => {
+    if (currentUser) fetchFriends();
+}, 10000);
+
+socket.on('djChanged', (data) => {
+    console.log('DJ Changed Event:', data);
+    currentRoomState.djId = data.djId;
+    isDJ = (myId === data.djId);
+
+    if (data.djId) {
+        if (djStatus) djStatus.textContent = `DJ: ${data.djName || 'Someone'}`;
+        if (currentDjLabel) currentDjLabel.textContent = data.djName || 'Someone';
+        addSystemMessage(`${data.djName || 'Someone'} is now the DJ!`);
+    } else {
+        if (djStatus) djStatus.textContent = `NO DJ CONNECTED`;
+        if (currentDjLabel) currentDjLabel.textContent = 'None';
+        addSystemMessage(`The DJ has left the booth.`);
+    }
+
+    updateUI(); // Centralize UI updates
+});
+
+socket.on('roomUpdate', (state) => {
+    if (isDJ) return; // I am the source of truth
+
+    const latencyCompensation = state.serverTime ? (Date.now() - state.serverTime) / 1000 : 0;
+
+    // Partial Patching
+    currentRoomState.currentTrack = state.currentTrack;
+    currentRoomState.isPlaying = state.isPlaying;
+    currentRoomState.seekPosition = state.seekPosition + (state.isPlaying ? latencyCompensation : 0);
+    currentRoomState.currentTheme = state.currentTheme;
+    currentRoomState.currentVibe = state.currentVibe;
+    currentRoomState.announcement = state.announcement;
+
+    // Apply shared theme if it exists and is different
+    if (state.currentTheme) {
+        applyTheme(state.currentTheme, false);
+    }
+
+    renderAnnouncement(state.announcement);
+    syncWithDJ(currentRoomState);
+});
+
+// --- Volume Knob Logic ---
+
+if (volumeKnob) {
+    volumeKnob.onmousedown = (e) => {
+        isDraggingKnob = true;
+        lastY = e.clientY;
+        document.body.style.cursor = 'ns-resize';
+    };
+}
+
+window.onmousemove = (e) => {
+    if (!isDraggingKnob) return;
+
+    const deltaY = lastY - e.clientY;
+    lastY = e.clientY;
+
+    volume = Math.min(100, Math.max(0, volume + deltaY));
+    updateVolumeUI();
+};
+
+window.onmouseup = () => {
+    isDraggingKnob = false;
+    document.body.style.cursor = 'default';
+};
+
+function updateVolumeUI() {
+    // Rotation: -135deg (0%) to 135deg (100%)
+    const rotation = ((volume / 100) * 270) - 135;
+    if (knobIndicator) knobIndicator.style.transform = `rotate(${rotation}deg)`;
+    if (volumePct) volumePct.textContent = `${Math.round(volume)}%`;
+    if (widget) widget.setVolume(volume);
+}
+
+// Set initial visual state
+updateVolumeUI();
+
+// --- Theme Engine Logic ---
+
+if (uploadTriggerBtn) uploadTriggerBtn.onclick = () => themeUploader.click();
+
+if (themeUploader) {
+    themeUploader.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                extractAndPreviewTheme(img);
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+}
+
+let pendingTheme = null;
+
+function extractAndPreviewTheme(img) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 10; // Tiny for fast sampling
+    canvas.height = 10;
+    ctx.drawImage(img, 0, 0, 10, 10);
+
+    // Sample a few strategic pixels
+    const p1 = ctx.getImageData(0, 0, 1, 1).data; // BG
+    const p2 = ctx.getImageData(5, 5, 1, 1).data; // Accent
+    const p3 = ctx.getImageData(9, 9, 1, 1).data; // Border
+
+    const rgbToHex = (r, g, b) => '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+
+    pendingTheme = {
+        bg: rgbToHex(p1[0], p1[1], p1[2]),
+        panel: rgbToHex(Math.max(0, p1[0] - 20), Math.max(0, p1[1] - 20), Math.max(0, p1[2] - 20)),
+        border: rgbToHex(p3[0], p3[1], p3[2]),
+        accent: rgbToHex(p2[0], p2[1], p2[2]),
+        text: (p1[0] + p1[1] + p1[2] > 380) ? '#000000' : '#00ff00', // Contrast check
+        bgImage: img.src
+    };
+
+    themePreview.style.background = pendingTheme.bg;
+    themePreview.style.borderColor = pendingTheme.border;
+    themePreview.innerHTML = `<span style="color:${pendingTheme.accent}">READY TO APPLY</span>`;
+    applyThemeBtn.disabled = false;
+}
+
+applyThemeBtn.onclick = () => {
+    if (!pendingTheme) return;
+    applyTheme(pendingTheme, true); // true = broadcast if DJ
+    addSystemMessage("Custom theme applied room-wide!");
+};
+
+function applyTheme(theme, shouldBroadcast) {
+    const root = document.documentElement;
+    root.style.setProperty('--bg-color', theme.bg);
+    root.style.setProperty('--panel-bg', theme.panel);
+    root.style.setProperty('--border-color', theme.border);
+    root.style.setProperty('--accent-color', theme.accent);
+    root.style.setProperty('--text-color', theme.text);
+
+    // Dynamic header gradient based on theme colors
+    const headerGradient = `linear-gradient(90deg, ${theme.border}, ${theme.accent})`;
+    root.style.setProperty('--header-gradient', headerGradient);
+
+    document.body.style.backgroundImage = theme.bgImage ? `url(${theme.bgImage})` : 'none';
+    document.body.style.backgroundSize = 'cover';
+    document.body.style.backgroundAttachment = 'fixed';
+
+    if (shouldBroadcast && isDJ) {
+        currentRoomState.currentTheme = theme;
+        socket.emit('djUpdate', { theme: theme });
+    }
+}
+
+// --- Preset Themes Gallery ---
+
+const presets = [
+    { name: "HotDog Stand", bg: "#FF0000", panel: "#FFFF00", border: "#FFFFFF", accent: "#FF0000", text: "#000000" },
+    { name: "Winamp Classic", bg: "#2E2E2E", panel: "#4A4A4A", border: "#111111", accent: "#3BFF3B", text: "#3BFF3B" },
+    { name: "Emerald Forest", bg: "#0a1f0a", panel: "#1a331a", border: "#2ecc71", accent: "#57d9a3", text: "#e8f5e9" },
+    { name: "Obsidian Vibe", bg: "#050505", panel: "#111111", border: "#333333", accent: "#888888", text: "#dddddd" },
+    { name: "Electric Sunset", bg: "#1a0b1a", panel: "#2d162d", border: "#ff9f43", accent: "#ff6b6b", text: "#ffffff" },
+    { name: "Cyberpunk 97", bg: "#000000", panel: "#300030", border: "#FF00FF", accent: "#00FFFF", text: "#00FF00" },
+    { name: "Ice Blue", bg: "#003366", panel: "#004080", border: "#00FFFF", accent: "#FFFFFF", text: "#FFFFFF" },
+    { name: "Toxic", bg: "#051105", panel: "#102010", border: "#00AA00", accent: "#00FF00", text: "#00FF00" },
+    { name: "GeoCities Gold", bg: "#FFFFE0", panel: "#FFFACD", border: "#DAA520", accent: "#0000FF", text: "#000000" },
+    { name: "Vaporwave", bg: "#220033", panel: "#330044", border: "#ff71ce", accent: "#01cdfe", text: "#b967ff" },
+    { name: "Solarized", bg: "#002b36", panel: "#073642", border: "#586e75", accent: "#268bd2", text: "#839496" },
+    { name: "Pumpkin", bg: "#221100", panel: "#331100", border: "#FF8800", accent: "#FFDD00", text: "#FF8800" },
+    { name: "Deep Sea", bg: "#000022", panel: "#000033", border: "#0000FF", accent: "#00FFFF", text: "#FFFFFF" },
+    { name: "Royal", bg: "#4B0082", panel: "#8B008B", border: "#FFD700", accent: "#FFD700", text: "#FFFFFF" },
+    { name: "Inferno", bg: "#110000", panel: "#220000", border: "#FF0000", accent: "#FF8800", text: "#FFFF00" },
+    { name: "Forest", bg: "#002200", panel: "#003300", border: "#228B22", accent: "#ADFF2F", text: "#FFFFFF" },
+    { name: "Sunset", bg: "#FF4500", panel: "#FF6347", border: "#FFD700", accent: "#FFFFFF", text: "#FFFFFF" },
+    { name: "Ocean", bg: "#1E90FF", panel: "#00BFFF", border: "#FFFFFF", accent: "#0047AB", text: "#000000" },
+    // --- THEME PACK EXTRA ---
+    { name: "Cyber-Goth", bg: "#0c001a", panel: "#1c0032", border: "#ff00ff", accent: "#00ffff", text: "#ffffff", premium: true },
+    { name: "Tokyo Drift", bg: "#000b1a", panel: "#001a33", border: "#00ffff", accent: "#00ff00", text: "#ffffff", premium: true },
+    { name: "Rose Gold Luxe", bg: "#1a0f0f", panel: "#2d1b1b", border: "#b76e79", accent: "#ffcfd2", text: "#ffffff", premium: true },
+    { name: "Deep Space", bg: "#05000a", panel: "#0d011a", border: "#6a0dad", accent: "#9b30ff", text: "#ffffff", premium: true },
+    { name: "Ocean Breeze", bg: "#001a1a", panel: "#002d2d", border: "#00ced1", accent: "#7fffd4", text: "#ffffff", premium: true },
+    { name: "Blood Moon", bg: "#1a0000", panel: "#2d0000", border: "#8b0000", accent: "#ff0000", text: "#ffffff", premium: true }
+];
+
+const applyPreset = (theme) => {
+    if (theme.premium && !currentUser.hasThemePack) {
+        return alert("💎 This theme requires THEME PACK EXTRA!");
+    }
+    applyTheme({ ...theme, bgImage: '' }, true);
+    addSystemMessage(`Room theme set to: ${theme.name}`);
+};
+
+const claimThemePackBtn = document.getElementById('claim-theme-pack-btn');
+if (claimThemePackBtn) {
+    claimThemePackBtn.onclick = async () => {
+        const originalText = claimThemePackBtn.textContent;
+        claimThemePackBtn.textContent = 'SYNCING...';
+        socket.emit('unlockThemePack', { token: currentUser.token }, (res) => {
+            if (res.success) {
+                currentUser.hasThemePack = true;
+                initThemeGallery();
+                document.getElementById('premium-theme-shop').style.display = 'none';
+                alert("💎 THEME PACK EXTRA UNLOCKED! Enjoy the elite vibes.");
+            } else {
+                claimThemePackBtn.textContent = originalText;
+                alert(res.error || "Failed to unlock theme pack.");
+            }
+        });
+    };
+}
+
+function initThemeGallery() {
+    if (!themesGrid) return;
+    themesGrid.innerHTML = '';
+
+    // Hide shop if already owned
+    const themeShop = document.getElementById('premium-theme-shop');
+    if (themeShop) themeShop.style.display = (currentUser && currentUser.hasThemePack) ? 'none' : 'block';
+
+    presets.forEach(theme => {
+        const isLocked = theme.premium && (!currentUser || !currentUser.hasThemePack);
+        const card = document.createElement('div');
+        card.className = 'theme-card';
+        card.dataset.theme = theme.name;
+        if (isLocked) card.style.opacity = '0.6';
+
+        card.innerHTML = `
+            <div class="theme-card-title">${isLocked ? '🔒 ' : ''}${theme.name}</div>
+            <div class="theme-card-palette">
+                <div class="palette-strip" style="background: ${theme.bg};"></div>
+                <div class="palette-strip" style="background: ${theme.panel};"></div>
+                <div class="palette-strip" style="background: ${theme.border};"></div>
+                <div class="palette-strip" style="background: ${theme.accent};"></div>
+            </div>
+        `;
+
+        card.onclick = () => {
+            if (isLocked) {
+                return alert("💎 This theme is part of THEME PACK EXTRA!");
+            }
+            applyPreset(theme);
+            const cards = themesGrid.querySelectorAll('.theme-card');
+            cards.forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+        };
+        themesGrid.appendChild(card);
+    });
+}
+
+initThemeGallery();
+
+// --- Chat Logic ---
+
+sendBtn.onclick = sendMessage;
+chatInput.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
+
+changeNameBtn.onclick = () => {
+    const newName = prompt("ENTER YOUR NEW NICKNAME:", "CoolUser_");
+    if (newName) {
+        socket.emit('changeName', newName);
+    }
+};
+
+function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    // DJ commands
+    if (isDJ) {
+        if (text.startsWith('/play ')) {
+            const url = text.replace('/play ', '');
+            widget.load(url, {
+                auto_play: true,
+                callback: () => widget.setVolume(volume)
+            });
+            chatInput.value = '';
+            return;
+        }
+    }
+
+    socket.emit('sendMessage', {
+        text,
+        badge: currentUser ? currentUser.badge : null,
+        nameStyle: currentUser ? currentUser.nameStyle : null
+    });
+    chatInput.value = '';
+}
+
+socket.on('newMessage', (msg) => {
+    renderMessage(msg);
+});
+
+function renderMessage(msg) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `msg ${msg.isSystem ? 'system' : ''}`;
+
+    // Add PFP to chat message if not a system message
+    const pfpHtml = msg.isSystem ? '' : `<img src="${msg.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6JnB0X2lkPWdpcGh5X2dpZl9zZWFyY2gmZXA9djFfZ2lmX3NlYXJjaCZyaWQ9Z2lwaHkuZ2lmJmN0PWc/3o7TKMGpxPAb3NGoPC/giphy.gif'}" class="chat-pfp" />`;
+
+    msgDiv.innerHTML = `
+        ${pfpHtml}
+        <div class="msg-content">
+            <span class="time">[${msg.timestamp}]</span> 
+            <span class="name ${msg.nameStyle || ''}">${msg.userName}${msg.userName === 'mayne' ? ' <span class="creator-tag">[SERVER CREATOR]</span>' : ''}${msg.userName === 'kaid' ? ' <span class="co-owner-tag">[CO-OWNER]</span>' : ''}${msg.userName === 'mummy' ? ' <span class="co-admin-tag">[CO-ADMIN]</span>' : ''}:</span> 
+            ${msg.status ? `<span class="chat-status">[${msg.status}]</span>` : ''}
+            <span class="text">${msg.text}</span>
+        </div>
+    `;
+    chatMessages.appendChild(msgDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function addSystemMessage(text) {
+    const msg = {
+        userName: 'SYSTEM',
+        text: text,
+        timestamp: new Date().toLocaleTimeString(),
+        isSystem: true
+    };
+    renderMessage(msg);
+}
+
+// --- DJ Control logic ---
+
+// --- Auth UI Logic ---
+
+const showModal = (modal) => {
+    if (!modalOverlay || !modal) return;
+    modalOverlay.style.display = 'flex';
+    if (loginModal) loginModal.style.display = 'none';
+    if (registerModal) registerModal.style.display = 'none';
+    if (settingsModal) settingsModal.style.display = 'none';
+    modal.style.display = 'block';
+};
+
+const closeModal = () => {
+    if (modalOverlay) modalOverlay.style.display = 'none';
+};
+
+if (loginNavBtn) {
+    loginNavBtn.onclick = () => {
+        if (!currentUser) showModal(loginModal);
+    };
+}
+
+if (logoutNavBtn) {
+    logoutNavBtn.onclick = () => {
+        localStorage.removeItem('droom_token');
+        location.reload();
+    };
+}
+
+document.querySelectorAll('.close-modal').forEach(btn => btn.onclick = closeModal);
+
+const showRegBtn = document.getElementById('show-register');
+if (showRegBtn) {
+    showRegBtn.onclick = () => showModal(registerModal);
+}
+
+// Login Submit
+const loginSubmitBtn = document.getElementById('login-submit');
+if (loginSubmitBtn) {
+    loginSubmitBtn.onclick = async () => {
+        const usernameEl = document.getElementById('login-user');
+        const passwordEl = document.getElementById('login-pass');
+        if (!usernameEl || !passwordEl) return;
+
+        const username = usernameEl.value.trim();
+        const password = passwordEl.value;
+
+        try {
+            console.log('[SOCKET-AUTH] Logging in:', username);
+            socket.emit('login', { username, password }, (res) => {
+                if (res.token) {
+                    localStorage.setItem('droom_token', res.token);
+                    socket.emit('authenticate', res.token);
+                    closeModal();
+                } else {
+                    alert(res.error || 'Login failed');
+                }
+            });
+        } catch (err) {
+            console.error('Login Error:', err);
+            alert('CRITICAL: Socket connection issue.');
+        }
+    };
+}
+
+// Register Submit
+const regSubmitBtn = document.getElementById('reg-submit');
+if (regSubmitBtn) {
+    regSubmitBtn.onclick = async () => {
+        const usernameEl = document.getElementById('reg-user');
+        const passwordEl = document.getElementById('reg-pass');
+        if (!usernameEl || !passwordEl) return;
+
+        const username = usernameEl.value.trim();
+        const password = passwordEl.value;
+
+        if (!username || !password) {
+            alert("Username and password required.");
+            return;
+        }
+
+        const originalText = regSubmitBtn.textContent;
+        regSubmitBtn.textContent = 'WORKING...';
+        regSubmitBtn.disabled = true;
+
+        console.log('[SOCKET-AUTH] Safe registering:', username);
+        socket.emit('register', { username, password }, (res) => {
+            regSubmitBtn.textContent = originalText;
+            regSubmitBtn.disabled = false;
+
+            if (res.success) {
+                console.log('Registration success via socket');
+                alert(res.message);
+                showModal(loginModal);
+            } else {
+                console.warn('Registration failed via socket:', res.error);
+                alert(res.error || 'Registration failed');
+            }
+        });
+    };
+}
+
+// Repurposing change-name-btn for logged in users
+changeNameBtn.onclick = () => {
+    if (currentUser) {
+        // Reset file input when opening
+        document.getElementById('settings-pfp-file').value = '';
+        nameStyleSelect.value = currentUser.nameStyle || '';
+        if (statusInput) statusInput.value = currentUser.status || '';
+        updatePremiumUI();
+        showModal(settingsModal);
+    } else {
+        const newName = prompt("ENTER YOUR NEW NICKNAME:", "CoolUser_");
+        if (newName) {
+            socket.emit('changeName', newName);
+        }
+    }
+};
+
+// Settings Submit
+const settingsSubmitBtn = document.getElementById('settings-submit');
+if (settingsSubmitBtn) {
+    settingsSubmitBtn.onclick = async () => {
+        const fileInput = document.getElementById('settings-pfp-file');
+        const nameStyle = nameStyleSelect.value;
+        const status = statusInput ? statusInput.value.trim() : '';
+        const password = document.getElementById('settings-pass').value;
+
+        // Check if selecting premium without pack
+        if (nameStyle && ['name-gold', 'name-matrix', 'name-ghost', 'name-rainbow-v2', 'name-cherry-blossom'].includes(nameStyle) && !currentUser.hasPremiumPack) {
+            return alert("👑 ACCESS DENIED: This style requires the PREMIUM PACK.");
+        }
+
+        // Check if selecting Demon's Eyes without being mayne
+        if (nameStyle === 'name-demon-eyes' && currentUser.username !== 'mayne') {
+            return alert("👿 ACCESS DENIED: This style is for the SERVER OWNER only.");
+        }
+
+        // Exclusive Co-Owner Style validation
+        if (nameStyle === 'name-co-owner-luck' && currentUser.username !== 'kaid') {
+            alert("This style is exclusive to the Co-Owner!");
+            return;
+        }
+
+        if (nameStyle === 'name-mummy-exclusive' && currentUser.username !== 'mummy') {
+            alert("🚨 THIS STYLE IS RESERVED FOR CO-ADMIN (mummy)!");
+            return;
+        }
+
+        const originalText = settingsSubmitBtn.textContent;
+        settingsSubmitBtn.textContent = 'SAVING...';
+        settingsSubmitBtn.disabled = true;
+
+        let badge = null;
+        if (fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            badge = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        const payload = { token: currentUser.token, password, nameStyle, status };
+        if (badge) payload.badge = badge;
+
+        console.log('[SOCKET-AUTH] Sending profile update...');
+        socket.emit('updateProfile', payload, (res) => {
+            settingsSubmitBtn.textContent = originalText;
+            settingsSubmitBtn.disabled = false;
+
+            if (res.success) {
+                currentUser = { ...res.user, token: currentUser.token };
+                addSystemMessage("Profile updated successfully!");
+                closeModal();
+            } else {
+                alert(res.error || 'Update failed');
+            }
+        });
+    };
+}
+
+if (claimPremiumBtn) {
+    claimPremiumBtn.onclick = async () => {
+        const originalText = claimPremiumBtn.textContent;
+        claimPremiumBtn.textContent = 'LOADING...';
+
+        socket.emit('unlockPremium', { token: currentUser.token }, (res) => {
+            if (res.success) {
+                currentUser.hasPremiumPack = true;
+                updatePremiumUI();
+                alert("👑 PREMIUM PACK UNLOCKED! Enjoy your new styles.");
+            } else {
+                claimPremiumBtn.textContent = originalText;
+                alert(res.error || "Failed to unlock premium.");
+            }
+        });
+    };
+}
+
+function updatePremiumUI() {
+    if (!currentUser) return;
+
+    const isPremium = currentUser.hasPremiumPack;
+    const isCoOwner = currentUser.username === 'kaid';
+    premiumShop.style.display = isPremium ? 'none' : 'block';
+
+    // Manage dropdown options
+    const premiumOptions = nameStyleSelect.querySelectorAll('option');
+    premiumOptions.forEach(opt => {
+        // Premium Pack styles
+        if (['name-gold', 'name-matrix', 'name-ghost', 'name-rainbow-v2', 'name-cherry-blossom'].includes(opt.value)) {
+            if (isPremium) {
+                opt.disabled = false;
+                opt.textContent = opt.textContent.replace(' (PREMIUM)', '');
+            } else {
+                opt.disabled = true;
+            }
+        }
+
+        // Exclusive Co-Owner style
+        if (opt.value === 'name-co-owner-luck') {
+            opt.style.display = isCoOwner ? 'block' : 'none';
+        }
+
+        // Exclusive Owner style (mayne)
+        if (opt.value === 'name-demon-eyes') {
+            opt.style.display = currentUser.username === 'mayne' ? 'block' : 'none';
+        }
+
+        // Exclusive Mummy style
+        if (opt.value === 'name-mummy-exclusive') {
+            opt.style.display = currentUser.username === 'mummy' ? 'block' : 'none';
+        }
+    });
+}
+
+// --- Social System Logic ---
+
+tabProfileBtn.onclick = () => {
+    tabProfileBtn.classList.add('active');
+    tabSocialBtn.classList.remove('active');
+    tabThemesBtn.classList.remove('active');
+    tabAdminBtn.classList.remove('active');
+    tabProfile.style.display = 'block';
+    tabSocial.style.display = 'none';
+    tabThemes.style.display = 'none';
+    tabAdmin.style.display = 'none';
+};
+
+tabSocialBtn.onclick = () => {
+    tabSocialBtn.classList.add('active');
+    tabProfileBtn.classList.remove('active');
+    tabThemesBtn.classList.remove('active');
+    tabAdminBtn.classList.remove('active');
+    tabProfile.style.display = 'none';
+    tabSocial.style.display = 'block';
+    tabThemes.style.display = 'none';
+    tabAdmin.style.display = 'none';
+    fetchFriends();
+};
+
+tabThemesBtn.onclick = () => {
+    tabThemesBtn.classList.add('active');
+    tabProfileBtn.classList.remove('active');
+    tabSocialBtn.classList.remove('active');
+    tabAdminBtn.classList.remove('active');
+    tabProfile.style.display = 'none';
+    tabSocial.style.display = 'none';
+    tabThemes.style.display = 'block';
+    tabAdmin.style.display = 'none';
+    initThemeGallery();
+};
+
+sendFriendRequestBtn.onclick = async () => {
+    const targetUsername = friendUsernameInput.value.trim();
+    if (!targetUsername || !currentUser) return;
+
+    socket.emit('sendFriendRequest', { token: currentUser.token, targetUsername }, (res) => {
+        if (res.success) {
+            alert("Request sent to " + targetUsername);
+            friendUsernameInput.value = '';
+        } else {
+            alert(res.error || "Failed to send request");
+        }
+    });
+};
+
+async function fetchFriends() {
+    if (!currentUser) return;
+    socket.emit('getFriends', { token: currentUser.token }, (data) => {
+        if (!data.error) {
+            renderFriendsLists(data.friends, data.pending);
+        }
+    });
+}
+
+async function acceptFriend(requesterUsername) {
+    if (!currentUser) return;
+    socket.emit('acceptFriend', { token: currentUser.token, requesterUsername }, (res) => {
+        if (res.success) {
+            fetchFriends();
+        }
+    });
+}
+window.acceptFriend = acceptFriend;
+
+function renderFriendsLists(friends, pending) {
+    // Render Modal Pending
+    if (pendingRequestsList) {
+        pendingRequestsList.innerHTML = pending.length ? '' : '<div style="color: #666; padding: 5px;">NO PENDING REQUESTS</div>';
+        pending.forEach(req => {
+            const div = document.createElement('div');
+            div.className = 'pending-item';
+            div.innerHTML = `
+                <span>${req}</span>
+                <button onclick="acceptFriend('${req}')">ACCEPT</button>
+            `;
+            pendingRequestsList.appendChild(div);
+        });
+    }
+
+    // Render Modal Friends
+    if (friendsListModal) {
+        friendsListModal.innerHTML = friends.length ? '' : '<div style="color: #666; padding: 5px;">NO FRIENDS YET</div>';
+        friends.forEach(f => {
+            const div = document.createElement('div');
+            div.className = 'modal-friend-item';
+            div.innerHTML = `
+                <div style="display:flex; align-items:center; gap:5px;">
+                    <img src="${f.badge}" style="width:20px; height:20px; border-radius:50%;" />
+                    <span class="${f.nameStyle}">${f.username}</span>
+                    <span style="font-size:0.5rem; color:${f.isOnline ? '#0f0' : '#555'}">[${f.isOnline ? 'ONLINE' : 'OFFLINE'}]</span>
+                </div>
+            `;
+            friendsListModal.appendChild(div);
+        });
+    }
+
+    // Update Top Friends Grid (Sidebar)
+    if (topFriendsGrid) {
+        topFriendsGrid.innerHTML = friends.length ? '' : '<div style="grid-column: span 3; text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">ADD FRIENDS IN SETTINGS</div>';
+        friends.slice(0, 9).forEach(f => {
+            const div = document.createElement('div');
+            div.className = 'friend-item';
+            div.innerHTML = `
+                <img src="${f.badge}" class="friend-pfp" />
+                <span class="${f.nameStyle}">${f.username}</span>
+            `;
+            topFriendsGrid.appendChild(div);
+        });
+    }
+}
+
+// --- Admin System Logic ---
+
+if (tabAdminBtn) {
+    tabAdminBtn.onclick = () => {
+        tabAdminBtn.classList.add('active');
+        if (tabProfileBtn) tabProfileBtn.classList.remove('active');
+        if (tabSocialBtn) tabSocialBtn.classList.remove('active');
+        if (tabProfile) tabProfile.style.display = 'none';
+        if (tabSocial) tabSocial.style.display = 'none';
+        if (tabAdmin) tabAdmin.style.display = 'block';
+        updateAdminUI();
+    };
+}
+
+function updateAdminUI() {
+    if (!currentUser || currentUser.username !== 'mayne' || !adminUserList) return;
+
+    adminUserList.innerHTML = '';
+    Object.values(currentRoomState.users || {}).forEach(u => {
+        if (u.id === myId) return;
+        const div = document.createElement('div');
+        div.className = 'admin-client-item';
+        div.innerHTML = `
+            <span>${u.name} (${u.id.substring(0, 5)}...)</span>
+            <button class="kick-btn" onclick="adminKick('${u.id}')">KICK</button>
+        `;
+        adminUserList.appendChild(div);
+    });
+}
+
+async function adminKick(targetSocketId) {
+    if (!currentUser) return;
+    socket.emit('adminKick', { token: currentUser.token, targetSocketId }, (res) => {
+        if (!res.success) alert(res.error);
+    });
+}
+window.adminKick = adminKick;
+
+if (adminAnnSetBtn) {
+    adminAnnSetBtn.onclick = async () => {
+        const text = adminAnnInput.value.trim();
+        if (!text || !currentUser) return;
+        socket.emit('adminAnnouncement', { token: currentUser.token, text }, (res) => {
+            if (res.success) adminAnnInput.value = '';
+            else alert(res.error);
+        });
+    };
+}
+
+if (adminAnnClearBtn) {
+    adminAnnClearBtn.onclick = async () => {
+        if (!currentUser) return;
+        socket.emit('adminAnnouncement', { token: currentUser.token, text: null }, (res) => {
+            if (!res.success) alert(res.error);
+        });
+    };
+}
+
+function renderAnnouncement(text) {
+    if (!announcementBanner) return;
+    if (text) {
+        announcementBanner.textContent = `*** ATTENTION: ${text} ***`;
+        announcementBanner.style.display = 'block';
+    } else {
+        announcementBanner.style.display = 'none';
+    }
+}
+
+if (adminClearChatBtn) {
+    adminClearChatBtn.onclick = async () => {
+        if (confirm("NUKE ALL CHAT MESSAGES?")) {
+            socket.emit('adminClearChat', { token: currentUser.token }, (res) => {
+                if (!res.success) alert(res.error);
+            });
+        }
+    };
+}
+
+adminResetDjBtn.onclick = () => {
+    // Local override for testing, but ideally we'd have an endpoint to clear roomState.djId
+    alert("DJ RESET LOGIC PENDING SERVER SIDE ROLE OVERRIDE");
+};
+
+loadTrackBtn.onclick = () => {
+    const url = trackUrlInput.value.trim();
+    if (url && isDJ) {
+        widget.load(url, {
+            auto_play: true,
+            callback: () => widget.setVolume(volume)
+        });
+        trackUrlInput.value = '';
+    }
+};
+
+claimDjBtn.onclick = () => {
+    console.log('Click: Requesting DJ status...');
+    socket.emit('requestDJ');
+};
+
+function syncWithDJ(state) {
+    if (syncLock || !state.currentTrack) return;
+    syncLock = true;
+
+    // Latency compensation: Calculate how old the update is
+    const packetAge = state.lastUpdateAt ? (Date.now() - state.lastUpdateAt) : 0;
+    const targetPos = state.isPlaying ? (state.seekPosition + packetAge) : state.seekPosition;
+
+    widget.getCurrentSound((sound) => {
+        const soundUrl = sound ? sound.permalink_url : null;
+
+        if (soundUrl !== state.currentTrack) {
+            console.log(`[SYNC] New track: ${state.currentTrack}. Packet Age: ${packetAge}ms`);
+            widget.load(state.currentTrack, {
+                auto_play: state.isPlaying,
+                callback: () => {
+                    widget.seekTo(targetPos);
+                    widget.setVolume(volume); // Maintain local volume
+                    currentTrackLabel.textContent = state.currentTrack;
+                    console.log(`[SYNC] Track loaded and compensated to ${targetPos}ms (Vol: ${volume}%)`);
+                }
+            });
+        } else {
+            // Same track, check drift against compensated target
+            widget.getPosition((pos) => {
+                const drift = Math.abs(pos - targetPos);
+                // Tight threshold with compensation: 500ms (Zero-Lag)
+                if (drift > 500) {
+                    console.warn(`[SYNC] Precision Drift: ${drift}ms. Adjusting to ${targetPos}ms...`);
+                    widget.seekTo(targetPos);
+                }
+            });
+
+            widget.isPaused((isPaused) => {
+                if (state.isPlaying && isPaused) {
+                    console.log('[SYNC] DJ is playing, resuming locally...');
+                    widget.play();
+                } else if (!state.isPlaying && !isPaused) {
+                    console.log('[SYNC] DJ is paused, pausing locally...');
+                    widget.pause();
+                }
+            });
+        }
+        syncLock = false;
+    });
+}
+
+// --- Widget Event Listeners (For DJ and Sync Enforcement) ---
+
+widget.bind(SC.Widget.Events.READY, () => {
+    console.log('SC Widget Ready');
+    widget.setVolume(volume); // Ensure volume is applied on ready
+
+    // Enforcement for listeners: If they try to pause while DJ is playing, resume it
+    widget.bind(SC.Widget.Events.PAUSE, () => {
+        if (!isDJ && currentRoomState.isPlaying) {
+            console.log('Sync Enforcement: Resuming playback...');
+            widget.play();
+        }
+    });
+
+    // Only DJ sends updates - Throttled to 2.5s for tunnel stability
+    setInterval(() => {
+        if (isDJ) {
+            widget.isPaused((paused) => {
+                widget.getPosition((pos) => {
+                    widget.getCurrentSound((sound) => {
+                        socket.emit('djUpdate', {
+                            track: sound ? sound.permalink_url : currentRoomState.currentTrack,
+                            isPlaying: !paused,
+                            seekPosition: pos,
+                            theme: currentRoomState.currentTheme // Always include current room aesthetic
+                        });
+                        if (sound) currentTrackLabel.textContent = sound.title || sound.permalink_url;
+                    });
+                });
+            });
+        }
+    }, 1000); // 1.0 second sync pulse (Zero-Lag Mode)
+});
+
+function updateUI() {
+    isDJ = (myId === currentRoomState.djId);
+    claimDjBtn.style.display = currentRoomState.djId ? 'none' : 'block';
+    djToolset.style.display = isDJ ? 'flex' : 'none';
+    if (currentRoomState.djId) {
+        djStatus.textContent = `DJ CONNECTED`;
+    }
+}
+
+// --- Voice UI Logic ---
+if (voiceJoinBtn) {
+    voiceJoinBtn.onclick = async () => {
+        const savedDeviceId = localStorage.getItem('preferredVoiceDeviceId');
+        const success = await voiceManager.join(savedDeviceId);
+        if (success) {
+            voiceJoinBtn.style.display = 'none';
+            voiceLeaveBtn.style.display = 'block';
+            voiceControlsExtra.style.display = 'flex';
+            addSystemMessage("Connecting to Voice Channel...");
+            updateDeviceList();
+        }
+    };
+}
+
+async function updateDeviceList() {
+    if (!voiceInputSelect) return;
+
+    const devices = await voiceManager.getAudioDevices();
+    const savedDeviceId = localStorage.getItem('preferredVoiceDeviceId');
+
+    voiceInputSelect.innerHTML = '';
+
+    if (devices.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = "";
+        opt.textContent = "NO MICROPHONES FOUND";
+        voiceInputSelect.appendChild(opt);
+        return;
+    }
+
+    devices.forEach(device => {
+        const opt = document.createElement('option');
+        opt.value = device.deviceId;
+        opt.textContent = device.label || `Microphone ${voiceInputSelect.length + 1}`;
+        if (device.deviceId === savedDeviceId) {
+            opt.selected = true;
+        }
+        voiceInputSelect.appendChild(opt);
+    });
+}
+
+if (voiceInputSelect) {
+    voiceInputSelect.onchange = async () => {
+        const deviceId = voiceInputSelect.value;
+        if (deviceId) {
+            const success = await voiceManager.setAudioInput(deviceId);
+            if (success) {
+                localStorage.setItem('preferredVoiceDeviceId', deviceId);
+                addSystemMessage("Voice input switched.");
+            }
+        }
+    };
+}
+
+if (voiceLeaveBtn) {
+    voiceLeaveBtn.onclick = () => {
+        voiceManager.leave();
+        voiceJoinBtn.style.display = 'block';
+        voiceLeaveBtn.style.display = 'none';
+        voiceControlsExtra.style.display = 'none';
+        addSystemMessage("Disconnected from Voice Channel.");
+    };
+}
+
+if (voiceMuteBtn) {
+    voiceMuteBtn.onclick = () => {
+        const muted = voiceManager.toggleMute();
+        voiceMuteBtn.classList.toggle('active', muted);
+        voiceMuteBtn.textContent = muted ? '🔇' : '🎤';
+    };
+}
+
+if (voiceDeafenBtn) {
+    voiceDeafenBtn.onclick = () => {
+        const deafened = voiceManager.toggleDeafen();
+        voiceDeafenBtn.classList.toggle('active', deafened);
+        voiceDeafenBtn.textContent = deafened ? '❌🎧' : '🎧';
+    };
+}
+
+// Handle device unplugged/plugged
+if (navigator.mediaDevices && navigator.mediaDevices.ondevicechange !== undefined) {
+    navigator.mediaDevices.ondevicechange = () => {
+        if (voiceManager.isJoined) updateDeviceList();
+    };
+}
+
+window.updateVoiceUI = (voiceUsers) => {
+    if (!voiceUsersContainer) return;
+    voiceUsersContainer.innerHTML = '';
+
+    if (!voiceUsers || voiceUsers.length === 0) {
+        voiceUsersContainer.innerHTML = '<div style="text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">CHANNEL EMPTY</div>';
+        return;
+    }
+
+    voiceUsers.forEach(vUser => {
+        const avatar = vUser.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6JnB0X2lkPWdpcGh5X2dpZl9zZWFyY2gmZXA9djFfZ2lmX3NlYXJjaCZyaWQ9Z2lwaHkuZ2lmJmN0PWc/3o7TKMGpxPAb3NGoPC/giphy.gif';
+        const nameStyle = vUser.nameStyle || '';
+
+        const div = document.createElement('div');
+        div.className = 'voice-user-item';
+        div.innerHTML = `
+            <img src="${avatar}" class="voice-user-avatar" />
+            <div class="voice-user-info">
+                <span style="font-weight: bold;" class="${nameStyle}">${vUser.name}</span>
+            </div>
+            <div class="voice-status-icons">
+                ${vUser.muted ? '<span class="muted-icon">🔇</span>' : ''}
+                ${vUser.deafened ? '<span class="deafened-icon">🎧❌</span>' : ''}
+            </div>
+        `;
+        voiceUsersContainer.appendChild(div);
+    });
+};
