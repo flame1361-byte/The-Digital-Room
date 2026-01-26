@@ -319,19 +319,30 @@ function addMessageToBuffer(msg) {
     }
 }
 
+function getUniqueUsers() {
+    const unique = {};
+    Object.values(roomState.users).forEach(u => {
+        if (!unique[u.name]) {
+            unique[u.name] = u;
+        }
+    });
+    return Object.values(unique);
+}
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    // Initial user setup
-    roomState.users[socket.id] = {
-        id: socket.id,
-        name: `User_${socket.id.substring(0, 4)}`,
-        badge: 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJndzEyam0yZnB4ZzR6NHRxZzR6NHRxZzR6NHRxZzR6NHRxZzR6JnB0X2lkPWdpcGh5X2dpZl9zZWFyY2gmZXA9djFfZ2lmX3NlYXJjaCZyaWQ9Z2lwaHkuZ2lmJmN0PWc/3o7TKMGpxPAb3NGoPC/giphy.gif'
-    };
+    // Initial user setup - NO LONGER ADDING GUESTS TO roomState.users
+    // Users are only added to the active list after successful 'authenticate'
 
     // Send current state to the new user
+
+    // Send current state to the new user - using unique users for the list
     socket.emit('init', {
-        state: roomState,
+        state: {
+            ...roomState,
+            users: getUniqueUsers()
+        },
         yourId: socket.id
     });
 
@@ -577,7 +588,7 @@ io.on('connection', (socket) => {
                     pendingRequests: user.pendingRequests || [],
                     isAuthenticated: true
                 };
-                io.emit('userUpdate', Object.values(roomState.users));
+                io.emit('userUpdate', getUniqueUsers());
                 socket.emit('authSuccess', {
                     username: user.username,
                     badge: user.badge,
@@ -594,18 +605,17 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Notify others
-    io.emit('userUpdate', Object.values(roomState.users));
-
     // Broadcast join message
-    const joinMsg = {
-        userName: 'SYSTEM',
-        text: `${roomState.users[socket.id].name} has entered the room.`,
-        timestamp: new Date().toLocaleTimeString(),
-        isSystem: true
-    };
-    addMessageToBuffer(joinMsg);
-    io.emit('newMessage', joinMsg);
+    if (roomState.users[socket.id]) {
+        const joinMsg = {
+            userName: 'SYSTEM',
+            text: `${roomState.users[socket.id].name} has entered the room.`,
+            timestamp: new Date().toLocaleTimeString(),
+            isSystem: true
+        };
+        addMessageToBuffer(joinMsg);
+        io.emit('newMessage', joinMsg);
+    }
 
     // Handle Chat
     socket.on('sendMessage', (data) => {
@@ -715,30 +725,32 @@ io.on('connection', (socket) => {
         const user = roomState.users[socket.id];
         const nameOnExit = user ? user.name : 'Unknown User';
 
-        delete roomState.users[socket.id];
+        if (user) {
+            delete roomState.users[socket.id];
 
-        if (roomState.djId === socket.id) {
-            roomState.djId = null;
-            io.emit('djChanged', { djId: null });
+            if (roomState.djId === socket.id) {
+                roomState.djId = null;
+                io.emit('djChanged', { djId: null });
+            }
+
+            // --- BUG FIX: Voice Chat Cleanup ---
+            if (roomState.voiceUsers[socket.id]) {
+                console.log(`[VOICE] Cleanup: ${roomState.voiceUsers[socket.id].name} disconnected.`);
+                delete roomState.voiceUsers[socket.id];
+                io.emit('voice-update', Object.values(roomState.voiceUsers));
+            }
+
+            const leaveMsg = {
+                userName: 'SYSTEM',
+                text: `${nameOnExit} has left the room.`,
+                timestamp: new Date().toLocaleTimeString(),
+                isSystem: true
+            };
+            addMessageToBuffer(leaveMsg);
+            io.emit('newMessage', leaveMsg);
+
+            io.emit('userUpdate', getUniqueUsers());
         }
-
-        // --- BUG FIX: Voice Chat Cleanup ---
-        if (roomState.voiceUsers[socket.id]) {
-            console.log(`[VOICE] Cleanup: ${roomState.voiceUsers[socket.id].name} disconnected.`);
-            delete roomState.voiceUsers[socket.id];
-            io.emit('voice-update', Object.values(roomState.voiceUsers));
-        }
-
-        const leaveMsg = {
-            userName: 'SYSTEM',
-            text: `${nameOnExit} has left the room.`,
-            timestamp: new Date().toLocaleTimeString(),
-            isSystem: true
-        };
-        addMessageToBuffer(leaveMsg);
-        io.emit('newMessage', leaveMsg);
-
-        io.emit('userUpdate', Object.values(roomState.users));
     });
 
     // --- Voice Chat Signaling ---

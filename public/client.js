@@ -141,6 +141,12 @@ socket.on('init', (data) => {
     const savedToken = localStorage.getItem('droom_token');
     if (savedToken) {
         socket.emit('authenticate', savedToken);
+    } else {
+        // Force Login Modal if not authenticated
+        modalOverlay.style.display = 'flex';
+        loginModal.style.display = 'block';
+        // Hide close buttons to prevent bypass
+        document.querySelectorAll('.close-modal').forEach(btn => btn.style.display = 'none');
     }
 
     // Initial sync
@@ -1261,28 +1267,17 @@ window.updateVoiceUI = (voiceUsers) => {
     });
 };
 
-// --- Force Login Logic (No Guest Access) ---
-const existingToken = localStorage.getItem('token');
-if (existingToken) {
-    socket.emit('login', { token: existingToken });
-} else {
-    // Force Login Modal
-    const overlay = document.getElementById('modal-overlay');
-    const login = document.getElementById('login-modal');
-    if (overlay && login) {
-        overlay.style.display = 'flex';
-        login.style.display = 'block';
-        // Hide cancel buttons to prevent bypass
-        document.querySelectorAll('.close-modal').forEach(btn => btn.style.display = 'none');
-    }
-}
-
 // Initial UI Setup
 function initUI() {
     // Hide guest-specific UI elements if any exist
     const guestPfp = document.getElementById('guest-pfp-preview');
     if (guestPfp) {
         guestPfp.style.display = 'none';
+        guestPfp.parentNode.removeChild(guestPfp); // Remove it entirely
+    }
+    const userDisplay = document.getElementById('user-display');
+    if (userDisplay && userDisplay.textContent.includes('Guest')) {
+        userDisplay.textContent = 'Awaiting Login...';
     }
 }
 initUI();
