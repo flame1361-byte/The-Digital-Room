@@ -1120,9 +1120,9 @@ widget.bind(SC.Widget.Events.READY, () => {
             console.log("DJ: Pause event, broadcasting...");
             emitDJUpdate();
         } else {
-            // Enforcement for listeners: If they try to pause while DJ is playing, resume it
+            // Bulletproof Enforcement: If room is playing, don't let listeners pause!
             if (currentRoomState.isPlaying) {
-                console.log('Sync Enforcement: Resuming playback...');
+                console.log('SYNC SHIELD: Resuming playback (Listeners cannot pause)...');
                 widget.play();
             }
         }
@@ -1139,6 +1139,15 @@ widget.bind(SC.Widget.Events.READY, () => {
         if (isDJ) {
             console.log("DJ: Seek event, broadcasting instantly...");
             emitDJUpdate();
+        } else {
+            // Bulletproof Enforcement: If listener tries to seek, snap them back to DJ
+            if (currentRoomState.isPlaying && !isDJ) {
+                console.log('SYNC SHIELD: Snapping back to DJ position...');
+                // Calculate position with latency compensation
+                const packetAge = currentRoomState.serverTime ? (Date.now() - currentRoomState.serverTime) : 0;
+                const targetPos = currentRoomState.seekPosition + packetAge;
+                widget.seekTo(targetPos);
+            }
         }
     });
 
