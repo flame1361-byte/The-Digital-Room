@@ -60,7 +60,8 @@ const settingsModal = document.getElementById('settings-modal');
 const loginNavBtn = document.getElementById('login-nav-btn');
 const logoutNavBtn = document.getElementById('logout-nav-btn');
 const userDisplay = document.getElementById('user-display');
-const guestPfpPreview = document.getElementById('guest-pfp-preview');
+// Guest access removed
+// const guestPfpPreview = document.getElementById('guest-pfp-preview');
 const nameStyleSelect = document.getElementById('settings-name-style');
 const statusInput = document.getElementById('settings-status');
 const premiumShop = document.getElementById('premium-shop');
@@ -169,6 +170,11 @@ socket.on('authSuccess', (userData) => {
 socket.on('authError', (msg) => {
     localStorage.removeItem('droom_token');
     addSystemMessage(`Auth Error: ${msg}. Please login again.`);
+    // Force Re-Login
+    modalOverlay.style.display = 'flex';
+    loginModal.style.display = 'block';
+    document.querySelectorAll('.close-modal').forEach(btn => btn.style.display = 'none');
+    if (guestPfpPreview) guestPfpPreview.style.display = 'none';
 });
 
 // --- Ping Measurement ---
@@ -1224,3 +1230,29 @@ window.updateVoiceUI = (voiceUsers) => {
         voiceUsersContainer.appendChild(div);
     });
 };
+
+// --- Force Login Logic (No Guest Access) ---
+const existingToken = localStorage.getItem('token');
+if (existingToken) {
+    socket.emit('login', { token: existingToken });
+} else {
+    // Force Login Modal
+    const overlay = document.getElementById('modal-overlay');
+    const login = document.getElementById('login-modal');
+    if (overlay && login) {
+        overlay.style.display = 'flex';
+        login.style.display = 'block';
+        // Hide cancel buttons to prevent bypass
+        document.querySelectorAll('.close-modal').forEach(btn => btn.style.display = 'none');
+    }
+}
+
+// Initial UI Setup
+function initUI() {
+    // Hide guest-specific UI elements if any exist
+    const guestPfp = document.getElementById('guest-pfp-preview');
+    if (guestPfp) {
+        guestPfp.style.display = 'none';
+    }
+}
+initUI();
