@@ -165,6 +165,11 @@ socket.on('init', (data) => {
 
     renderAnnouncement(data.state.announcement);
 
+    // Apply shared theme if it exists on join
+    if (data.state.currentTheme) {
+        applyTheme(data.state.currentTheme, false);
+    }
+
     // Auto-authenticate if token exists
     const savedToken = localStorage.getItem('droom_token');
     if (savedToken) {
