@@ -985,11 +985,15 @@ function renderFriendsLists(friends, pending) {
         if (topFriendsGrid) {
             topFriendsGrid.innerHTML = friends.length ? '' : '<div style="grid-column: span 3; text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">ADD FRIENDS IN SETTINGS</div>';
             friends.slice(0, 9).forEach(f => {
+                const name = typeof f === 'string' ? f : (f.username || 'Unknown');
+                const badge = typeof f === 'string' ? 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif' : (f.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif');
+                const style = typeof f === 'string' ? '' : (f.nameStyle || '');
+
                 const div = document.createElement('div');
                 div.className = 'friend-item';
                 div.innerHTML = `
-                    <img src="${f.badge}" class="friend-pfp" />
-                    <span class="${f.nameStyle}">${f.username}</span>
+                    <img src="${badge}" class="friend-pfp" />
+                    <span class="${style}">${name}</span>
                 `;
                 topFriendsGrid.appendChild(div);
             });

@@ -33,11 +33,11 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
-// Health check for Render
-app.get('/health', (req, res) => res.status(200).send('OK'));
-
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Health check for Render
+app.get('/health', (req, res) => res.status(200).send('OK'));
 
 // Force DB Load on start
 usersDb.load()
@@ -48,64 +48,41 @@ usersDb.load()
 async function seedStaff() {
     try {
         let staffData;
-        try {
-            staffData = require('./staffData');
-        } catch (e) {
-            console.log('[Seed] No staffData.js found, skipping seed.');
-            return;
-        }
-
-        console.log('[Seed] Verifying staff accounts...');
+        try { staffData = require('./staffData'); } catch (e) { return; }
         for (const user of staffData) {
             const existing = await usersDb.findOne({ username: user.username });
-            if (!existing) {
-                await usersDb.insert(user);
-                console.log(`[Seed] Restored staff member: ${user.username}`);
-            }
+            if (!existing) await usersDb.insert(user);
         }
         console.log('[Seed] Staff verification complete.');
-    } catch (err) {
-        console.error('[Seed] Error during seeding:', err);
-    }
+    } catch (err) { console.error('[Seed] Error during seeding:', err); }
 }
 
 // Periodic cleanup
 setInterval(() => {
     if (roomState.djId && !roomState.users[roomState.djId]) {
-        console.log("Cleanup: Removing ghost DJ", roomState.djId);
         roomState.djId = null;
         io.emit('djChanged', { djId: null });
     }
-}, 5000);
+}, 10000);
 
-app.use(express.json({ limit: '2mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+// Helper: Populate Friends
+async function getPopulatedFriends(friendUsernames) {
+    if (!friendUsernames || friendUsernames.length === 0) return [];
+    const friendDocs = await usersDb.find({ username: { $in: friendUsernames } });
+    const friendMap = {};
+    friendDocs.forEach(f => { friendMap[f.username] = f; });
 
-// Standard GET / for health checks
-app.get('/health', (req, res) => res.status(200).send('OK'));
-
-// --- Social API ---
-app.get('/api/friends/list', async (req, res) => {
-    try {
-        const token = req.headers.authorization?.split(' ')[1];
-        if (!token) return res.status(401).json({ error: 'Unauthorized' });
-        const decoded = jwt.verify(token, JWT_SECRET);
-
-        const user = await usersDb.findOne({ _id: decoded.id });
-        const friendDetails = await usersDb.find({ username: { $in: user.friends || [] } });
-
-        const friends = friendDetails.map(f => ({
+    return friendUsernames.map(name => {
+        const f = friendMap[name];
+        if (!f) return null;
+        return {
             username: f.username,
-            badge: f.badge,
-            nameStyle: f.nameStyle,
+            badge: f.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif',
+            nameStyle: f.nameStyle || '',
             isOnline: Object.values(roomState.users).some(u => u.name === f.username)
-        }));
-
-        res.json({ friends, pending: user.pendingRequests || [] });
-    } catch (err) {
-        res.status(500).json({ error: 'Failed' });
-    }
-});
+        };
+    }).filter(Boolean);
+}
 
 function addMessageToBuffer(msg) {
     roomState.messages.push(msg);
@@ -114,65 +91,42 @@ function addMessageToBuffer(msg) {
 
 function getUniqueUsers() {
     const unique = {};
-    Object.values(roomState.users).forEach(u => {
-        if (!unique[u.name]) unique[u.name] = u;
-    });
+    Object.values(roomState.users).forEach(u => { if (!unique[u.name]) unique[u.name] = u; });
     return Object.values(unique);
 }
 
 io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
+    socket.emit('init', { state: { ...roomState, users: getUniqueUsers() }, yourId: socket.id });
 
-    socket.emit('init', {
-        state: { ...roomState, users: getUniqueUsers() },
-        yourId: socket.id
-    });
-
-    // --- Socket-Sync Auth ---
     socket.on('register', async ({ username, password }, callback) => {
         try {
-            if (!username || !password) {
-                if (typeof callback === 'function') return callback({ error: 'Username/Password required' });
-                return;
-            }
-            const existing = await usersDb.findOne({ username });
-            if (existing) {
-                if (typeof callback === 'function') return callback({ error: 'User exists' });
-                return;
-            }
+            if (!username || !password) return callback?.({ error: 'Required' });
+            if (await usersDb.findOne({ username })) return callback?.({ error: 'Exists' });
             const hashedPassword = await bcrypt.hash(password, 10);
             await usersDb.insert({
                 username, password: hashedPassword,
                 badge: 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif',
                 nameStyle: '', hasPremiumPack: false, hasThemePack: false, friends: [], pendingRequests: []
             });
-            if (typeof callback === 'function') callback({ success: true });
-        } catch (err) {
-            if (typeof callback === 'function') callback({ error: 'Server error' });
-        }
+            callback?.({ success: true });
+        } catch (err) { callback?.({ error: 'Error' }); }
     });
 
     socket.on('login', async ({ username, password }, callback) => {
         try {
             const user = await usersDb.findOne({ username });
-            if (!user || !(await bcrypt.compare(password, user.password))) {
-                if (typeof callback === 'function') return callback({ error: 'Invalid' });
-                return;
-            }
+            if (!user || !(await bcrypt.compare(password, user.password))) return callback?.({ error: 'Invalid' });
             const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-            if (typeof callback === 'function') {
-                callback({
-                    token,
-                    user: {
-                        username: user.username, badge: user.badge, nameStyle: user.nameStyle,
-                        hasPremiumPack: user.hasPremiumPack || false, hasThemePack: user.hasThemePack || false,
-                        friends: user.friends || [], pendingRequests: user.pendingRequests || []
-                    }
-                });
-            }
-        } catch (err) {
-            if (typeof callback === 'function') callback({ error: 'Server error' });
-        }
+            const friends = await getPopulatedFriends(user.friends);
+            callback?.({
+                token,
+                user: {
+                    username: user.username, badge: user.badge, nameStyle: user.nameStyle,
+                    hasPremiumPack: user.hasPremiumPack || false, hasThemePack: user.hasThemePack || false,
+                    friends, pendingRequests: user.pendingRequests || []
+                }
+            });
+        } catch (err) { callback?.({ error: 'Error' }); }
     });
 
     socket.on('authenticate', async (token, callback) => {
@@ -180,33 +134,25 @@ io.on('connection', (socket) => {
             const decoded = jwt.verify(token, JWT_SECRET);
             const user = await usersDb.findOne({ _id: decoded.id });
             if (user) {
+                const friends = await getPopulatedFriends(user.friends);
                 roomState.users[socket.id] = {
                     id: socket.id, dbId: user._id, name: user.username,
                     badge: user.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif',
                     nameStyle: user.nameStyle || '', status: user.status || '',
                     hasPremiumPack: user.hasPremiumPack || false, hasThemePack: user.hasThemePack || false,
                     hasWarlockStyle: user.hasWarlockStyle || false,
-                    friends: user.friends || [], pendingRequests: user.pendingRequests || [],
+                    friends, pendingRequests: user.pendingRequests || [],
                     isAuthenticated: true
                 };
                 io.emit('userUpdate', getUniqueUsers());
-                const responseData = {
-                    username: user.username, badge: user.badge, nameStyle: user.nameStyle,
-                    status: user.status || '', hasPremiumPack: user.hasPremiumPack || false,
-                    hasThemePack: user.hasThemePack || false, hasWarlockStyle: user.hasWarlockStyle || false,
-                    friends: user.friends || [], pendingRequests: user.pendingRequests || []
-                };
+                const responseData = { ...roomState.users[socket.id], username: user.username };
                 socket.emit('authSuccess', responseData);
-                if (typeof callback === 'function') callback({ success: true, user: responseData });
-
-                // Join broadcast
+                callback?.({ success: true, user: responseData });
                 const joinMsg = { userName: 'SYSTEM', text: `${user.username} entered.`, timestamp: new Date().toLocaleTimeString(), isSystem: true };
                 addMessageToBuffer(joinMsg);
                 io.emit('newMessage', joinMsg);
             }
-        } catch (err) {
-            if (typeof callback === 'function') callback({ success: false });
-        }
+        } catch (err) { callback?.({ success: false }); }
     });
 
     socket.on('updateProfile', async ({ token, badge, password, nameStyle, status }, callback) => {
@@ -217,160 +163,77 @@ io.on('connection', (socket) => {
             if (password) update.password = await bcrypt.hash(password, 10);
             if (nameStyle !== undefined) update.nameStyle = nameStyle;
             if (status !== undefined) update.status = status;
-
             await usersDb.update({ _id: decoded.id }, { $set: update });
             const updatedUser = await usersDb.findOne({ _id: decoded.id });
-
             if (roomState.users[socket.id]) {
                 roomState.users[socket.id].badge = updatedUser.badge;
                 roomState.users[socket.id].nameStyle = updatedUser.nameStyle;
                 roomState.users[socket.id].status = updatedUser.status || '';
-                io.emit('userPartialUpdate', { id: socket.id, badge: updatedUser.badge, nameStyle: updatedUser.nameStyle, status: updatedUser.status || '' });
+                io.emit('userPartialUpdate', { id: socket.id, ...update });
             }
-            if (typeof callback === 'function') callback({ success: true, user: updatedUser });
-        } catch (err) {
-            if (typeof callback === 'function') callback({ error: 'Failed' });
-        }
+            callback?.({ success: true, user: updatedUser });
+        } catch (err) { callback?.({ error: 'Failed' }); }
     });
 
-    socket.on('unlockPremium', async ({ token }, callback) => {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            await usersDb.update({ _id: decoded.id }, { $set: { hasPremiumPack: true } });
-            if (roomState.users[socket.id]) {
-                roomState.users[socket.id].hasPremiumPack = true;
-                io.emit('userPartialUpdate', { id: socket.id, hasPremiumPack: true });
-            }
-            if (typeof callback === 'function') callback({ success: true });
-        } catch (err) { if (typeof callback === 'function') callback({ error: 'Failed' }); }
-    });
-
-    socket.on('unlockThemePack', async ({ token }, callback) => {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            await usersDb.update({ _id: decoded.id }, { $set: { hasThemePack: true } });
-            if (roomState.users[socket.id]) {
-                roomState.users[socket.id].hasThemePack = true;
-                io.emit('userPartialUpdate', { id: socket.id, hasThemePack: true });
-            }
-            if (typeof callback === 'function') callback({ success: true });
-        } catch (err) { if (typeof callback === 'function') callback({ error: 'Failed' }); }
-    });
-
-    socket.on('unlockWarlock', async ({ token }, callback) => {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            await usersDb.update({ _id: decoded.id }, { $set: { hasWarlockStyle: true } });
-            if (roomState.users[socket.id]) {
-                roomState.users[socket.id].hasWarlockStyle = true;
-                io.emit('userPartialUpdate', { id: socket.id, hasWarlockStyle: true });
-            }
-            if (typeof callback === 'function') callback({ success: true });
-        } catch (err) { if (typeof callback === 'function') callback({ error: 'Failed' }); }
-    });
-
-    // --- Social Socket Events ---
     socket.on('getFriends', async ({ token }, callback) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             const user = await usersDb.findOne({ _id: decoded.id });
-            if (user && typeof callback === 'function') {
-                const friendUsernames = user.friends || [];
-                const friendDocs = await Promise.all(friendUsernames.map(name => usersDb.findOne({ username: name })));
-
-                const populatedFriends = friendDocs.map(f => {
-                    if (!f) return null;
-                    const isOnline = Object.values(roomState.users).some(u => u.name === f.username);
-                    return {
-                        username: f.username,
-                        badge: f.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif',
-                        nameStyle: f.nameStyle || '',
-                        isOnline
-                    };
-                }).filter(Boolean);
-
-                callback({ friends: populatedFriends, pending: user.pendingRequests || [] });
+            if (user) {
+                const friends = await getPopulatedFriends(user.friends);
+                callback?.({ friends, pending: user.pendingRequests || [] });
             }
-        } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
+        } catch (err) { callback?.({ error: 'Auth failed' }); }
     });
 
     socket.on('sendFriendRequest', async ({ token, targetUsername }, callback) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
-            const sender = await usersDb.findOne({ _id: decoded.id });
             const target = await usersDb.findOne({ username: targetUsername });
-            if (!target) { if (typeof callback === 'function') return callback({ error: 'User not found' }); return; }
-            if (target.username === sender.username) { if (typeof callback === 'function') return callback({ error: 'Cannot add yourself' }); return; }
-            await usersDb.update({ _id: target._id }, { $addToSet: { pendingRequests: sender.username } });
-            if (typeof callback === 'function') callback({ success: true });
-        } catch (err) { if (typeof callback === 'function') callback({ error: 'Failed' }); }
+            if (!target) return callback?.({ error: 'Not found' });
+            if (target.username === decoded.username) return callback?.({ error: 'Self' });
+            await usersDb.update({ _id: target._id }, { $addToSet: { pendingRequests: decoded.username } });
+            callback?.({ success: true });
+        } catch (err) { callback?.({ error: 'Failed' }); }
     });
 
     socket.on('acceptFriend', async ({ token, requesterUsername }, callback) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
-            const user = await usersDb.findOne({ _id: decoded.id });
-            const requester = await usersDb.findOne({ username: requesterUsername });
-            if (!user || !requester) { if (typeof callback === 'function') return callback({ error: 'User not found' }); return; }
-            await usersDb.update({ _id: user._id }, { $pull: { pendingRequests: requesterUsername }, $addToSet: { friends: requesterUsername } });
+            await usersDb.update({ _id: decoded.id }, { $pull: { pendingRequests: requesterUsername }, $addToSet: { friends: requesterUsername } });
             await usersDb.update({ username: requesterUsername }, { $addToSet: { friends: decoded.username } });
-            if (typeof callback === 'function') callback({ success: true });
-        } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
+            callback?.({ success: true });
+        } catch (err) { callback?.({ error: 'Auth failed' }); }
     });
 
-    // --- Admin Socket Events ---
     socket.on('adminKick', ({ token, targetSocketId }, callback) => {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            if (decoded.username !== ADMIN_USER) { if (typeof callback === 'function') return callback({ error: 'Forbidden' }); return; }
-            const targetSocket = io.sockets.sockets.get(targetSocketId);
-            if (targetSocket) { targetSocket.disconnect(); if (typeof callback === 'function') callback({ success: true }); }
-            else { if (typeof callback === 'function') callback({ error: 'User not online' }); }
-        } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded.username !== ADMIN_USER) return callback?.({ error: 'Forbidden' });
+        const target = io.sockets.sockets.get(targetSocketId);
+        if (target) { target.disconnect(); callback?.({ success: true }); }
     });
 
     socket.on('adminAnnouncement', ({ token, text }, callback) => {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            if (decoded.username !== ADMIN_USER) { if (typeof callback === 'function') return callback({ error: 'Forbidden' }); return; }
-            roomState.announcement = text || null;
-            io.emit('roomUpdate', { ...roomState, serverTime: Date.now() });
-            if (typeof callback === 'function') callback({ success: true });
-        } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
-    });
-
-    socket.on('adminClearChat', ({ token }, callback) => {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            if (decoded.username !== ADMIN_USER) { if (typeof callback === 'function') return callback({ error: 'Forbidden' }); return; }
-            roomState.messages = [];
-            addMessageToBuffer({ userName: 'SYSTEM', text: 'Chat history cleared by Admin.', timestamp: new Date().toLocaleTimeString(), isSystem: true });
-            io.emit('init', { state: { ...roomState, users: getUniqueUsers() }, yourId: null });
-            if (typeof callback === 'function') callback({ success: true });
-        } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded.username !== ADMIN_USER) return callback?.({ error: 'Forbidden' });
+        roomState.announcement = text || null;
+        io.emit('roomUpdate', { ...roomState, serverTime: Date.now() });
+        callback?.({ success: true });
     });
 
     socket.on('adminResetDj', ({ token }, callback) => {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            if (decoded.username !== ADMIN_USER && decoded.username !== 'kaid') {
-                if (typeof callback === 'function') return callback({ error: 'Forbidden' });
-                return;
-            }
-            roomState.djId = null;
-            io.emit('djChanged', { djId: null });
-            io.emit('newMessage', { userName: 'SYSTEM', text: 'DJ booth has been reset by an administrator.', isSystem: true });
-            if (typeof callback === 'function') callback({ success: true });
-        } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded.username !== ADMIN_USER && decoded.username !== 'kaid') return callback?.({ error: 'Forbidden' });
+        roomState.djId = null;
+        io.emit('djChanged', { djId: null });
+        callback?.({ success: true });
     });
 
     socket.on('sendMessage', (data) => {
         const user = roomState.users[socket.id];
         const msg = {
-            userId: socket.id, userName: user ? user.name : 'Guest',
-            badge: user ? user.badge : data.badge,
-            nameStyle: user ? user.nameStyle : (data.nameStyle || ''),
-            text: data.text, timestamp: new Date().toLocaleTimeString()
+            userName: user ? user.name : 'Guest', badge: user ? user.badge : null,
+            nameStyle: user ? user.nameStyle : '', text: data.text, timestamp: new Date().toLocaleTimeString()
         };
         addMessageToBuffer(msg);
         io.emit('newMessage', msg);
@@ -378,17 +241,15 @@ io.on('connection', (socket) => {
 
     socket.on('privateMessage', ({ targetName, text }) => {
         const sender = roomState.users[socket.id];
-        if (!sender || !sender.isAuthenticated) return;
-        const msgData = { from: sender.name, to: targetName, text, timestamp: new Date().toLocaleTimeString() };
-        Object.values(roomState.users).filter(u => u.name === targetName || u.name === sender.name).forEach(u => io.to(u.id).emit('privateMessage', msgData));
+        if (!sender?.isAuthenticated) return;
+        const msg = { from: sender.name, to: targetName, text, timestamp: new Date().toLocaleTimeString() };
+        Object.values(roomState.users).filter(u => u.name === targetName || u.name === sender.name).forEach(u => io.to(u.id).emit('privateMessage', msg));
     });
 
     socket.on('requestDJ', () => {
-        const user = roomState.users[socket.id];
-        if (!roomState.djId && user) {
+        if (!roomState.djId && roomState.users[socket.id]) {
             roomState.djId = socket.id;
-            io.emit('djChanged', { djId: roomState.djId, djName: user.name });
-            io.emit('newMessage', { userName: 'SYSTEM', text: `${user.name} is now the DJ!`, isSystem: true });
+            io.emit('djChanged', { djId: socket.id, djName: roomState.users[socket.id].name });
         }
     });
 
@@ -404,18 +265,17 @@ io.on('connection', (socket) => {
         if (user) {
             delete roomState.users[socket.id];
             if (roomState.djId === socket.id) { roomState.djId = null; io.emit('djChanged', { djId: null }); }
-            if (roomState.voiceUsers[socket.id]) { delete roomState.voiceUsers[socket.id]; io.emit('voice-update', Object.values(roomState.voiceUsers)); }
-            if (roomState.streams[socket.id]) { delete roomState.streams[socket.id]; io.emit('stream-update', Object.values(roomState.streams)); }
-            io.emit('newMessage', { userName: 'SYSTEM', text: `${user.name} left.`, isSystem: true });
+            delete roomState.voiceUsers[socket.id];
+            delete roomState.streams[socket.id];
             io.emit('userUpdate', getUniqueUsers());
         }
     });
 
     // --- Voice/Stream ---
     socket.on('voice-join', () => {
-        const user = roomState.users[socket.id];
-        if (user) {
-            roomState.voiceUsers[socket.id] = { id: socket.id, name: user.name, badge: user.badge, nameStyle: user.nameStyle, muted: false, deafened: false };
+        const u = roomState.users[socket.id];
+        if (u) {
+            roomState.voiceUsers[socket.id] = { id: socket.id, name: u.name, badge: u.badge, nameStyle: u.nameStyle };
             io.emit('voice-update', Object.values(roomState.voiceUsers));
             socket.emit('voice-peer-list', Object.keys(roomState.voiceUsers).filter(id => id !== socket.id));
         }
@@ -423,11 +283,11 @@ io.on('connection', (socket) => {
     socket.on('voice-signal', ({ to, signal }) => io.to(to).emit('voice-signal', { from: socket.id, signal }));
 
     socket.on('stream-start', () => {
-        const user = roomState.users[socket.id];
-        if (user && Object.keys(roomState.streams).length < 10) {
-            roomState.streams[socket.id] = { streamerId: socket.id, streamerName: user.name };
+        const u = roomState.users[socket.id];
+        if (u && Object.keys(roomState.streams).length < 10) {
+            roomState.streams[socket.id] = { streamerId: socket.id, streamerName: u.name };
             io.emit('stream-update', Object.values(roomState.streams));
-            user.isLive = true;
+            u.isLive = true;
             io.emit('userPartialUpdate', { id: socket.id, isLive: true });
         }
     });
@@ -443,8 +303,5 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => console.log(`TheDigitalRoom is alive at http://localhost:${PORT}`));
 
-// Global Error Handling
 process.on('uncaughtException', (err) => console.error('CRITICAL ERROR:', err));
 process.on('unhandledRejection', (err) => console.error('CRITICAL REJECTION:', err));
-
-// Cache Buster: 20260126235800
