@@ -1792,47 +1792,6 @@ footer {
     background: rgba(0, 255, 0, 0.05);
 }
 
-/* --- [MYTHIC] PROPHET'S VISION --- */
-.name-mythic {
-    font-weight: 900;
-    text-transform: uppercase;
-    background: linear-gradient(45deg, #ff00ff, #00ffff, #ffff00, #ff00ff);
-    background-size: 300% 300%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: mythic-shift 3s infinite linear, mythic-breath 2s ease-in-out infinite;
-    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 10px rgba(138, 43, 226, 0.5));
-    letter-spacing: 1px;
-}
-
-@keyframes mythic-shift {
-    0% {
-        background-position: 0% 50%;
-    }
-
-    50% {
-        background-position: 100% 50%;
-    }
-
-    100% {
-        background-position: 0% 50%;
-    }
-}
-
-@keyframes mythic-breath {
-
-    0%,
-    100% {
-        transform: scale(1);
-        filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.8));
-    }
-
-    50% {
-        transform: scale(1.05);
-        filter: drop-shadow(0 0 15px rgba(255, 255, 255, 1)) drop-shadow(0 0 25px rgba(0, 255, 255, 0.4));
-    }
-}
 
 /* Base styles for tags */
 .creator-tag,
