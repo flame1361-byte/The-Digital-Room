@@ -13,7 +13,6 @@ let roomState = {
     currentTrack: '', // No default track
     isPlaying: false,
     seekPosition: 0,
-    currentTheme: null, // Shared room aesthetic
     currentVibe: 'WELCOME TO THE DIGITAL ROOM', // Shared scrolling text
     announcement: null, // Persistent room-wide news
     djId: null,
@@ -737,7 +736,6 @@ io.on('connection', (socket) => {
             roomState.currentTrack = update.track || roomState.currentTrack;
             roomState.isPlaying = update.isPlaying !== undefined ? update.isPlaying : roomState.isPlaying;
             roomState.seekPosition = update.seekPosition !== undefined ? update.seekPosition : roomState.seekPosition;
-            roomState.currentTheme = update.theme !== undefined ? update.theme : roomState.currentTheme;
             roomState.currentVibe = update.vibe !== undefined ? update.vibe : roomState.currentVibe;
 
             roomState.lastUpdateAt = Date.now(); // Server-side precision timestamp
@@ -750,21 +748,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Master Theme Change (Owner Only)
-    socket.on('adminChangeTheme', (data) => {
-        const user = roomState.users[socket.id];
-        if (user && user.name === ADMIN_USER) {
-            console.log(`[ADMIN] ${user.name} changed the room theme.`);
-            roomState.currentTheme = data.theme;
-            roomState.lastUpdateAt = Date.now();
-
-            // Broadcast immediately to everyone
-            io.emit('roomUpdate', {
-                ...roomState,
-                serverTime: roomState.lastUpdateAt
-            });
-        }
-    });
 
     socket.on('reportPing', (ping) => {
         if (roomState.users[socket.id]) {

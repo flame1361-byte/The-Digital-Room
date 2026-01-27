@@ -165,8 +165,17 @@ socket.on('init', (data) => {
 
     renderAnnouncement(data.state.announcement);
 
-    // Apply shared theme if it exists on join
-    if (data.state.currentTheme) {
+    // LOAD PERSISTENT THEME (Independent Choice)
+    const localTheme = localStorage.getItem('droom_theme');
+    if (localTheme) {
+        try {
+            applyTheme(JSON.parse(localTheme), false);
+            console.log("[THEME] Restored independent theme from storage.");
+        } catch (e) {
+            console.error("[THEME] Failed to parse local theme:", e);
+        }
+    } else if (data.state.currentTheme) {
+        // Fallback to room default only if no choice made
         applyTheme(data.state.currentTheme, false);
     }
 
@@ -197,13 +206,15 @@ socket.on('authSuccess', (userData) => {
     updatePremiumUI();
     fetchFriends();
 
+    // Unlock Theme Controls for ALL users (Independent Choice)
+    if (tabThemesBtn) tabThemesBtn.style.display = 'block';
+    const themeEngine = document.getElementById('theme-engine');
+    const themeBoxHeader = themeEngine?.previousElementSibling;
+    if (themeEngine) themeEngine.style.display = 'block';
+    if (themeBoxHeader) themeBoxHeader.style.display = 'block';
+
     if (currentUser.username === 'mayne') {
         if (tabAdminBtn) tabAdminBtn.style.display = 'block';
-        if (tabThemesBtn) tabThemesBtn.style.display = 'block';
-        const themeEngine = document.getElementById('theme-engine');
-        const themeBoxHeader = themeEngine?.previousElementSibling;
-        if (themeEngine) themeEngine.style.display = 'block';
-        if (themeBoxHeader) themeBoxHeader.style.display = 'block';
     }
 
     // Update local guest name to be the real name
@@ -424,11 +435,11 @@ function extractAndPreviewTheme(img) {
 
 applyThemeBtn.onclick = () => {
     if (!pendingTheme) return;
-    applyTheme(pendingTheme, true); // true = broadcast if DJ
-    addSystemMessage("Custom theme applied room-wide!");
+    applyTheme(pendingTheme); // Now independent
+    addSystemMessage("Custom theme applied to your session!");
 };
 
-function applyTheme(theme, shouldBroadcast) {
+function applyTheme(theme) {
     const root = document.documentElement;
     root.style.setProperty('--bg-color', theme.bg);
     root.style.setProperty('--panel-bg', theme.panel);
@@ -444,10 +455,8 @@ function applyTheme(theme, shouldBroadcast) {
     document.body.style.backgroundSize = 'cover';
     document.body.style.backgroundAttachment = 'fixed';
 
-    if (shouldBroadcast && currentUser?.username === 'mayne') {
-        currentRoomState.currentTheme = theme;
-        socket.emit('adminChangeTheme', { theme: theme });
-    }
+    // PERSIST LOCALLY: Save the user's choice
+    localStorage.setItem('droom_theme', JSON.stringify(theme));
 }
 
 // --- Preset Themes Gallery ---
@@ -481,8 +490,8 @@ const presets = [
 ];
 
 const applyPreset = (theme) => {
-    applyTheme({ ...theme, bgImage: '' }, true);
-    addSystemMessage(`Room theme set to: ${theme.name}`);
+    applyTheme({ ...theme, bgImage: '' });
+    addSystemMessage(`Independent theme set to: ${theme.name}`);
 };
 
 
