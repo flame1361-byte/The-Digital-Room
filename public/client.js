@@ -439,7 +439,6 @@ const presets = [
     { name: "Forest", bg: "#002200", panel: "#003300", border: "#228B22", accent: "#ADFF2F", text: "#FFFFFF" },
     { name: "Sunset", bg: "#FF4500", panel: "#FF6347", border: "#FFD700", accent: "#FFFFFF", text: "#FFFFFF" },
     { name: "Ocean", bg: "#1E90FF", panel: "#00BFFF", border: "#FFFFFF", accent: "#0047AB", text: "#000000" },
-    { name: "Ocean", bg: "#1E90FF", panel: "#00BFFF", border: "#FFFFFF", accent: "#0047AB", text: "#000000" },
     { name: "Cyber-Goth", bg: "#0c001a", panel: "#1c0032", border: "#ff00ff", accent: "#00ffff", text: "#ffffff", premium: true },
     { name: "Tokyo Drift", bg: "#000b1a", panel: "#001a33", border: "#00ffff", accent: "#00ff00", text: "#ffffff", premium: true },
     { name: "Rose Gold Luxe", bg: "#1a0f0f", panel: "#2d1b1b", border: "#b76e79", accent: "#ffcfd2", text: "#ffffff", premium: true },
