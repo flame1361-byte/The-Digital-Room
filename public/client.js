@@ -231,11 +231,14 @@ socket.on('authSuccess', (userData) => {
     addSystemMessage(`Authentication successful! Welcome back, ${currentUser.username}.`);
 });
 
-addSystemMessage(`Auth Error: ${msg}. Please login again.`);
-// Force Re-Login
-modalOverlay.style.display = 'flex';
-loginModal.style.display = 'block';
-document.querySelectorAll('.close-modal').forEach(btn => btn.style.display = 'none');
+socket.on('authError', (msg) => {
+    localStorage.removeItem('droom_token');
+    addSystemMessage(`Auth Error: ${msg}. Please login again.`);
+    // Force Re-Login
+    modalOverlay.style.display = 'flex';
+    loginModal.style.display = 'block';
+    document.querySelectorAll('.close-modal').forEach(btn => btn.style.display = 'none');
+});
 
 // --- Ping Measurement ---
 setInterval(() => {
