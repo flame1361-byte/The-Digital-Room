@@ -1471,6 +1471,7 @@ socket.on('privateMessage', (msg) => {
 
 const streamsGrid = document.getElementById('streams-grid');
 const streamCountBadge = document.getElementById('stream-count-badge');
+const streamsDirectory = document.getElementById('streams-directory');
 
 window.onStreamsUpdate = (activeStreams) => {
     currentRoomState.activeStreams = activeStreams || [];
@@ -1482,6 +1483,40 @@ window.onStreamsUpdate = (activeStreams) => {
 
     if (streamViewport) {
         streamViewport.style.display = (hasStreamsWatcherIsWatching || isBroadcasting) ? 'block' : 'none';
+    }
+
+    // Populate Stream Directory
+    if (streamsDirectory) {
+        if (currentRoomState.activeStreams.length === 0) {
+            streamsDirectory.innerHTML = '<div style="text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">NO ACTIVE STREAMS</div>';
+        } else {
+            streamsDirectory.innerHTML = '';
+            currentRoomState.activeStreams.forEach(s => {
+                const div = document.createElement('div');
+                div.className = 'user-item';
+                div.style = 'justify-content: space-between; padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,0.05);';
+
+                const isWatching = !!streamManager.watchedStreams[s.streamerId];
+                const isMe = s.streamerId === myId;
+
+                div.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                        <span class="blinker" style="color: #ff0055; font-size: 0.8rem;">●</span>
+                        <span style="font-size: 0.7rem; color: #fff; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">${s.streamerName}</span>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                        ${isMe ?
+                        '<span style="font-size: 0.5rem; color: #ff0055; border: 1px solid #ff0055; padding: 1px 4px;">YOU</span>' :
+                        `<button onclick="streamManager.${isWatching ? 'stopWatching' : 'joinStream'}('${s.streamerId}')" 
+                                style="background: ${isWatching ? '#333' : '#ff0055'}; color: white; border: none; font-size: 0.5rem; padding: 2px 6px; cursor: pointer; min-width: 45px;">
+                                ${isWatching ? 'LEAVE' : 'WATCH'}
+                            </button>`
+                    }
+                    </div>
+                `;
+                streamsDirectory.appendChild(div);
+            });
+        }
     }
 
     renderUserList();
