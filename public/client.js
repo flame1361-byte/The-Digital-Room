@@ -1469,12 +1469,19 @@ if (leaveStreamBtn) leaveStreamBtn.onclick = () => streamManager.leaveStream();
 
 window.updateStreamUI = (streamInfo, isLocalLeave = false) => {
     requestAnimationFrame(() => {
+        const isOwner = (currentUser && (currentUser.username === 'mayne' || currentUser.username === 'kaid'));
+        const streamContainer = document.getElementById('stream-controls');
+
+        if (streamContainer) {
+            streamContainer.style.display = isOwner ? 'block' : 'none';
+        }
+
         if (!streamInfo) {
             if (!isLocalLeave) {
                 if (streamViewport) streamViewport.style.display = 'none';
                 if (remoteVideo) remoteVideo.srcObject = null;
             }
-            if (streamStartBtn) streamStartBtn.style.display = 'block';
+            if (streamStartBtn) streamStartBtn.style.display = isOwner ? 'block' : 'none';
             if (streamStopBtn) streamStopBtn.style.display = 'none';
             if (joinStreamBtn) joinStreamBtn.style.display = 'block';
             if (leaveStreamBtn) leaveStreamBtn.style.display = 'none';
@@ -1489,7 +1496,7 @@ window.updateStreamUI = (streamInfo, isLocalLeave = false) => {
         if (streamerNameEl) streamerNameEl.textContent = streamInfo.streamerName;
 
         const isMe = (myId === streamInfo.streamerId);
-        if (streamStartBtn) streamStartBtn.style.display = isMe ? 'none' : 'block';
+        if (streamStartBtn) streamStartBtn.style.display = (isOwner && !isMe) ? 'block' : 'none';
         if (streamStopBtn) streamStopBtn.style.display = isMe ? 'block' : 'none';
 
         if (isMe) {
