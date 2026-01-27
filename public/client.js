@@ -529,20 +529,37 @@ changeNameBtn.onclick = () => {
     }
 };
 
-const msgData = {
-    userName: currentUser ? currentUser.username : 'Guest',
-    text,
-    badge: currentUser ? currentUser.badge : null,
-    nameStyle: currentUser ? currentUser.nameStyle : null,
-    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-    localEcho: true // Mark as optimistic
-};
+function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
 
-// Instant local render
-renderMessage(msgData);
-chatInput.value = '';
+    // DJ commands
+    if (isDJ) {
+        if (text.startsWith('/play ')) {
+            const url = text.replace('/play ', '');
+            widget.load(url, {
+                auto_play: true,
+                callback: () => widget.setVolume(volume)
+            });
+            chatInput.value = '';
+            return;
+        }
+    }
 
-socket.emit('sendMessage', msgData);
+    const msgData = {
+        userName: currentUser ? currentUser.username : 'Guest',
+        text,
+        badge: currentUser ? currentUser.badge : null,
+        nameStyle: currentUser ? currentUser.nameStyle : null,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        localEcho: true // Mark as optimistic
+    };
+
+    // Instant local render (Optimistic UI)
+    renderMessage(msgData);
+    chatInput.value = '';
+
+    socket.emit('sendMessage', msgData);
 }
 
 socket.on('newMessage', (msg) => {
