@@ -1889,6 +1889,88 @@ footer {
     }
 }
 
+/* --- 1440p Screen Share Theater Mode --- */
+#stream-viewport {
+    position: relative;
+    background: #000;
+    overflow: hidden;
+    border: 3px double #ff0055;
+    box-shadow: 0 0 40px rgba(255, 0, 85, 0.4);
+    margin-bottom: 25px;
+}
+
+#stream-viewport::after {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%),
+        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+    z-index: 5;
+    background-size: 100% 3px, 4px 100%;
+    pointer-events: none;
+    opacity: 0.3;
+}
+
+#remote-stream-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: contrast(1.05) brightness(1.1);
+    transform: translateZ(0);
+    /* GPU acceleration */
+}
+
+#stream-overlay {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#stream-status-msg {
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    animation: status-pulse 2s infinite ease-in-out;
+}
+
+@keyframes status-pulse {
+
+    0%,
+    100% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+}
+
+#stream-join-ui button {
+    font-family: 'VT323', monospace;
+    padding: 8px 20px;
+    font-size: 1.1rem;
+    border: 2px outset #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+}
+
+#stream-join-ui button:hover {
+    filter: brightness(1.2);
+    transform: translateY(-1px);
+}
+
+#stream-join-ui button:active {
+    border-style: inset;
+    transform: translateY(1px);
+}
+
 /* --- AD SYSTEM & MONETIZATION --- */
 .ad-grid {
     display: flex;

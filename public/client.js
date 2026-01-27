@@ -91,6 +91,17 @@ const voiceControlsExtra = document.getElementById('voice-controls-extra');
 const voiceInputSelect = document.getElementById('voice-input-select');
 
 const voiceManager = new VoiceManager(socket);
+const streamManager = new StreamManager(socket);
+
+// Stream DOM
+const streamViewport = document.getElementById('stream-viewport');
+const streamerNameEl = document.getElementById('streamer-name');
+const remoteVideo = document.getElementById('remote-stream-video');
+const streamStatusMsg = document.getElementById('stream-status-msg');
+const joinStreamBtn = document.getElementById('join-stream-btn');
+const leaveStreamBtn = document.getElementById('leave-stream-btn');
+const streamStartBtn = document.getElementById('stream-start-btn');
+const streamStopBtn = document.getElementById('stream-stop-btn');
 
 let myId = null;
 let currentUser = null; // Stores { username, badge, token }
@@ -191,6 +202,10 @@ socket.on('init', (data) => {
     if (currentRoomState.currentTrack) {
         syncWithDJ(currentRoomState);
     }
+
+    if (currentRoomState.currentStream) {
+        window.updateStreamUI(currentRoomState.currentStream);
+    }
 });
 
 socket.on('authSuccess', (userData) => {
@@ -289,6 +304,7 @@ function renderUserList() {
                         ${user.name === 'mayne' ? '<span class="creator-badge" title="ROOM ARCHITECT">★</span>' : ''}
                         ${user.name === 'kaid' ? '<span class="co-owner-badge" title="CO-OWNER">♦</span>' : ''}
                         ${user.name === 'mummy' ? '<span class="co-admin-badge" title="CO-ADMIN">⚡</span>' : ''}
+                        ${user.isLive ? '<span class="blinker" style="color:#ff0055; font-size: 0.6rem; margin-left: 5px;">[LIVE]</span>' : ''}
                     </div>
                     ${user.status ? `<div class="user-status-item"><span>“${user.status}”</span></div>` : ''}
                 </div>
@@ -1444,3 +1460,65 @@ socket.on('privateMessage', (msg) => {
         updateChatboxUI();
     }
 });
+
+// --- Stream UI Integration ---
+
+if (streamStartBtn) streamStartBtn.onclick = () => streamManager.startShare();
+if (streamStopBtn) streamStopBtn.onclick = () => streamManager.stopShare();
+if (joinStreamBtn) joinStreamBtn.onclick = () => streamManager.joinStream();
+if (leaveStreamBtn) leaveStreamBtn.onclick = () => streamManager.leaveStream();
+
+window.updateStreamUI = (streamInfo, isLocalLeave = false) => {
+    requestAnimationFrame(() => {
+        if (!streamInfo) {
+            if (!isLocalLeave) {
+                if (streamViewport) streamViewport.style.display = 'none';
+                if (remoteVideo) remoteVideo.srcObject = null;
+            }
+            if (streamStartBtn) streamStartBtn.style.display = 'block';
+            if (streamStopBtn) streamStopBtn.style.display = 'none';
+            if (joinStreamBtn) joinStreamBtn.style.display = 'block';
+            if (leaveStreamBtn) leaveStreamBtn.style.display = 'none';
+            if (streamStatusMsg) {
+                streamStatusMsg.textContent = 'STREAM OVER';
+                streamStatusMsg.style.display = 'block';
+            }
+            return;
+        }
+
+        if (streamViewport) streamViewport.style.display = 'block';
+        if (streamerNameEl) streamerNameEl.textContent = streamInfo.streamerName;
+
+        const isMe = (myId === streamInfo.streamerId);
+        if (streamStartBtn) streamStartBtn.style.display = isMe ? 'none' : 'block';
+        if (streamStopBtn) streamStopBtn.style.display = isMe ? 'block' : 'none';
+
+        if (isMe) {
+            if (streamStatusMsg) {
+                streamStatusMsg.textContent = 'YOU ARE LIVE';
+                streamStatusMsg.style.display = 'flex';
+            }
+            if (joinStreamBtn) joinStreamBtn.style.display = 'none';
+            if (leaveStreamBtn) leaveStreamBtn.style.display = 'none';
+        } else {
+            if (streamStatusMsg && !remoteVideo.srcObject) {
+                streamStatusMsg.textContent = 'JOIN BROADCAST';
+                streamStatusMsg.style.display = 'flex';
+                if (joinStreamBtn) joinStreamBtn.style.display = 'block';
+                if (leaveStreamBtn) leaveStreamBtn.style.display = 'none';
+            }
+        }
+    });
+};
+
+window.onRemoteStream = (stream) => {
+    if (remoteVideo) remoteVideo.srcObject = stream;
+    if (streamStatusMsg) streamStatusMsg.style.display = 'none';
+    if (joinStreamBtn) joinStreamBtn.style.display = 'none';
+    if (leaveStreamBtn) leaveStreamBtn.style.display = 'block';
+};
+
+window.onLocalStream = (stream) => {
+    if (remoteVideo) remoteVideo.srcObject = stream;
+    if (streamStatusMsg) streamStatusMsg.style.display = 'none';
+};
