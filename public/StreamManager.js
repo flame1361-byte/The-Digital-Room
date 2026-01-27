@@ -65,9 +65,19 @@ class StreamManager {
 
             this.localStream = await navigator.mediaDevices.getDisplayMedia(constraints);
 
-            // Critical Fix: Force "detail" hint to prevent blurriness during motion
+            // Hardened 60FPS: Apply constraints again after acquisition to ensure browser prioritizes fluency
             const videoTrack = this.localStream.getVideoTracks()[0];
             if (videoTrack) {
+                console.log('[STREAM] Hardening 60FPS constraints...');
+                try {
+                    await videoTrack.applyConstraints({
+                        frameRate: { ideal: 60 }
+                    });
+                } catch (e) {
+                    console.warn('[STREAM] Failed to apply 60FPS constraint post-capture:', e);
+                }
+
+                // Critical Fix: Force "detail" hint to prevent blurriness during motion
                 if ('contentHint' in videoTrack) {
                     videoTrack.contentHint = 'detail';
                 }
