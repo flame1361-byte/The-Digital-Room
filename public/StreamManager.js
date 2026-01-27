@@ -147,12 +147,45 @@ class StreamManager {
     async initiateCall(peerId) {
         const pc = this.createPeerConnection(peerId);
         try {
-            const offer = await pc.createOffer();
+            let offer = await pc.createOffer();
+
+            // Bitrate Hack: Modify SDP to force 8Mbps
+            if (offer.sdp) {
+                offer = new RTCSessionDescription({
+                    type: offer.type,
+                    sdp: this.setBitrate(offer.sdp, 8000)
+                });
+            }
+
             await pc.setLocalDescription(offer);
             this.socket.emit('stream-signal', { to: peerId, signal: offer });
         } catch (err) {
             console.error('[STREAM] Failed to create offer:', err);
         }
+    }
+
+    setBitrate(sdp, bitrate) {
+        const lines = sdp.split('\n');
+        let lineIndex = -1;
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].indexOf('m=video') === 0) {
+                lineIndex = i;
+                break;
+            }
+        }
+        if (lineIndex === -1) return sdp;
+
+        // Skip to next m line or end of sdp
+        lineIndex++;
+        while (lineIndex < lines.length && lines[lineIndex].indexOf('m=') === -1) {
+            if (lines[lineIndex].indexOf('c=') === 0) {
+                // Insert b=AS after c= line
+                lines.splice(lineIndex + 1, 0, 'b=AS:' + bitrate);
+                return lines.join('\n');
+            }
+            lineIndex++;
+        }
+        return sdp;
     }
 }
 
