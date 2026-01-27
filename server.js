@@ -96,7 +96,10 @@ function getUniqueUsers() {
 }
 
 io.on('connection', (socket) => {
-    socket.emit('init', { state: { ...roomState, users: getUniqueUsers() }, yourId: socket.id });
+    socket.emit('init', {
+        state: { ...roomState, users: getUniqueUsers(), serverTime: roomState.lastUpdateAt || Date.now() },
+        yourId: socket.id
+    });
 
     socket.on('register', async ({ username, password }, callback) => {
         try {
