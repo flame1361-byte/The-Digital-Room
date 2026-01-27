@@ -1499,7 +1499,11 @@ window.onRemoteStream = (stream, streamerId) => {
         container.style = 'position: relative; background: #000; border: 1px solid #ff0055; aspect-ratio: 16/9;';
 
         const streamerInfo = currentRoomState.activeStreams.find(s => s.streamerId === streamerId);
-        const name = streamerInfo ? streamerInfo.streamerName : 'Unknown Streamer';
+        let name = streamerInfo ? streamerInfo.streamerName : 'Unknown Streamer';
+
+        if (streamerId === myId && currentUser) {
+            name = `YOU (${currentUser.username})`;
+        }
 
         container.innerHTML = `
             <div style="position: absolute; top:0; left:0; right:0; background: rgba(255,0,85,0.8); color:white; font-size:0.6rem; padding: 2px 5px; z-index:10; display:flex; justify-content:space-between;">
@@ -1527,7 +1531,7 @@ window.onRemoteStream = (stream, streamerId) => {
 window.onLocalStream = (stream) => {
     if (stream) {
         // Just show a placeholder for yourself or a local preview
-        window.onRemoteStream(stream, myId);
+        setTimeout(() => window.onRemoteStream(stream, myId), 500);
     } else {
         // Cleanup local card
         const card = document.getElementById(`stream-card-${myId}`);

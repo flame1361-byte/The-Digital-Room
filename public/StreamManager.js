@@ -16,21 +16,21 @@ class StreamManager {
         });
 
         this.socket.on('stream-signal', async ({ from, signal, streamerId }) => {
-            console.log('[STREAM] Signal received from:', from, 'type:', signal?.type, 'streamerId:', streamerId);
+            if (!streamerId) return;
+            console.log(`[STREAM] Signal from ${from}, type: ${signal?.type}, streamerId: ${streamerId}`);
 
-            // Case 1: We are the streamer, receiving a signal (answer/candidate) from a viewer
-            if (this.broadcasterPeers[from]) {
-                await this.handleSDP(this.broadcasterPeers[from], from, signal, this.socket.id);
+            // Case 1: Signal is for a stream I am BROADCASTING (from a viewer to me)
+            if (streamerId === this.socket.id) {
+                const pc = this.broadcasterPeers[from];
+                if (pc) await this.handleSDP(pc, from, signal, streamerId);
             }
-            // Case 2: We are a viewer, receiving a signal (offer/candidate) from a streamer
-            else if (streamerId) {
+            // Case 2: Signal is for a stream I am WATCHING (from a broadcaster to me)
+            else {
                 if (!this.watchedStreams[streamerId] && signal.type === 'offer') {
                     this.createViewerPeerConnection(streamerId, from);
                 }
                 const peerData = this.watchedStreams[streamerId];
-                if (peerData) {
-                    await this.handleSDP(peerData.pc, from, signal, streamerId);
-                }
+                if (peerData) await this.handleSDP(peerData.pc, from, signal, streamerId);
             }
         });
 
