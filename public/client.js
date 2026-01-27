@@ -795,6 +795,27 @@ if (claimPremiumBtn) {
     };
 }
 
+const claimWarlockBtn = document.getElementById('claim-warlock-btn');
+const mythicShop = document.getElementById('mythic-shop');
+
+if (claimWarlockBtn) {
+    claimWarlockBtn.onclick = async () => {
+        const originalText = claimWarlockBtn.textContent;
+        claimWarlockBtn.textContent = 'SUMMONING...';
+
+        socket.emit('unlockWarlock', { token: currentUser.token }, (res) => {
+            if (res.success) {
+                currentUser.hasWarlockStyle = true;
+                updatePremiumUI();
+                alert("🔮 WARLOCK STYLE SUMMONED! Dark magic flows through you.");
+            } else {
+                claimWarlockBtn.textContent = originalText;
+                alert(res.error || "Failed to summon Warlock.");
+            }
+        });
+    };
+}
+
 function updatePremiumUI() {
     if (!currentUser) return;
 
