@@ -49,12 +49,12 @@ class StreamManager {
     async startShare() {
         try {
             console.log('[STREAM] Requesting screen share... (1440p constraints)');
-            // Highest quality constraints for 1440p
+            // Optimized constraints for 1080p Clarity
             const constraints = {
                 video: {
-                    width: { ideal: 2560 },
-                    height: { ideal: 1440 },
-                    frameRate: { ideal: 60 }
+                    width: { ideal: 1920, max: 1920 },
+                    height: { ideal: 1080, max: 1080 },
+                    frameRate: { ideal: 60, max: 60 }
                 },
                 audio: {
                     echoCancellation: true,
@@ -64,6 +64,15 @@ class StreamManager {
             };
 
             this.localStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+
+            // Critical Fix: Force "detail" hint to prevent blurriness during motion
+            const videoTrack = this.localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                if ('contentHint' in videoTrack) {
+                    videoTrack.contentHint = 'detail';
+                }
+            }
+
             this.isStreaming = true;
             this.socket.emit('stream-start');
 
