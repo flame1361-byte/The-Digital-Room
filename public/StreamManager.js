@@ -151,6 +151,16 @@ class StreamManager {
             this.localStream.getTracks().forEach(track => pc.addTrack(track, this.localStream));
         }
 
+        pc.oniceconnectionstatechange = () => {
+            if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+                console.log('[STREAM] Peer disconnected:', peerId);
+                if (this.peers[peerId]) {
+                    this.peers[peerId].close();
+                    delete this.peers[peerId];
+                }
+            }
+        };
+
         this.peers[peerId] = pc;
         return pc;
     }

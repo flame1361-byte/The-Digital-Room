@@ -56,8 +56,6 @@ const settingsModal = document.getElementById('settings-modal');
 const loginNavBtn = document.getElementById('login-nav-btn');
 const logoutNavBtn = document.getElementById('logout-nav-btn');
 const userDisplay = document.getElementById('user-display');
-// Guest access removed
-// const guestPfpPreview = document.getElementById('guest-pfp-preview');
 const nameStyleSelect = document.getElementById('settings-name-style');
 const statusInput = document.getElementById('settings-status');
 const premiumShop = document.getElementById('premium-shop');
@@ -233,15 +231,11 @@ socket.on('authSuccess', (userData) => {
     addSystemMessage(`Authentication successful! Welcome back, ${currentUser.username}.`);
 });
 
-socket.on('authError', (msg) => {
-    localStorage.removeItem('droom_token');
-    addSystemMessage(`Auth Error: ${msg}. Please login again.`);
-    // Force Re-Login
-    modalOverlay.style.display = 'flex';
-    loginModal.style.display = 'block';
-    document.querySelectorAll('.close-modal').forEach(btn => btn.style.display = 'none');
-    if (guestPfpPreview) guestPfpPreview.style.display = 'none';
-});
+addSystemMessage(`Auth Error: ${msg}. Please login again.`);
+// Force Re-Login
+modalOverlay.style.display = 'flex';
+loginModal.style.display = 'block';
+document.querySelectorAll('.close-modal').forEach(btn => btn.style.display = 'none');
 
 // --- Ping Measurement ---
 setInterval(() => {
@@ -356,6 +350,16 @@ socket.on('roomUpdate', (state) => {
     }
 
     renderAnnouncement(state.announcement);
+
+    // Reactive Vibe Sync
+    const marquee = document.querySelector('header marquee');
+    if (marquee && state.currentVibe) {
+        const fullVibe = `*** ${state.currentVibe} *** BECOME THE DJ ***`;
+        if (marquee.textContent !== fullVibe) {
+            marquee.textContent = fullVibe;
+        }
+    }
+
     syncWithDJ(currentRoomState);
 });
 

@@ -88,61 +88,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Auth Endpoints ---
 
-app.post('/api/register', async (req, res) => {
-    const { username, password } = req.body;
-    console.log(`[AUTH] Registration attempt received: ${username}`);
-    console.log(`[AUTH] Database check starting...`);
-    try {
-        if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
-
-        const existing = await usersDb.findOne({ username });
-        if (existing) return res.status(400).json({ error: 'Username already exists' });
-        console.log(`[AUTH] User check passed. Hashing password...`);
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = await usersDb.insert({
-            username,
-            password: hashedPassword,
-            badge: 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif',
-            nameStyle: '',
-            hasPremiumPack: false,
-            friends: [],
-            pendingRequests: []
-        });
-        console.log(`[AUTH] Registration complete for: ${username}`);
-
-        res.json({ success: true, message: 'User registered! Please login.' });
-    } catch (err) {
-        console.error('Registration API Error:', err);
-        res.status(500).json({ error: 'Server error during registration' });
-    }
-});
-
-app.post('/api/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        const user = await usersDb.findOne({ username });
-        if (!user || !(await bcrypt.compare(password, user.password))) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-        res.json({
-            token,
-            user: {
-                username: user.username,
-                badge: user.badge,
-                nameStyle: user.nameStyle,
-                hasPremiumPack: user.hasPremiumPack || false,
-                hasThemePack: user.hasThemePack || false, // Theme Pack Extra
-                friends: user.friends || [],
-                pendingRequests: user.pendingRequests || []
-            }
-        });
-    } catch (err) {
-        res.status(500).json({ error: 'Server error during login' });
-    }
-});
+// --- Legacy REST Auth Endpoints Removed (Site now uses Socket-based Auth) ---
 
 app.post('/api/update-profile', async (req, res) => {
     try {
@@ -578,7 +524,7 @@ io.on('connection', (socket) => {
     });
 
     // Handle Socket Authentication
-    socket.on('authenticate', async (token) => {
+    socket.on('authenticate', async (token, callback) => {
         try {
             await usersDb.load();
             const decoded = jwt.verify(token, JWT_SECRET);
@@ -599,7 +545,8 @@ io.on('connection', (socket) => {
                     isAuthenticated: true
                 };
                 io.emit('userUpdate', getUniqueUsers());
-                socket.emit('authSuccess', {
+
+                const responseData = {
                     username: user.username,
                     badge: user.badge,
                     nameStyle: user.nameStyle,
@@ -608,10 +555,17 @@ io.on('connection', (socket) => {
                     hasThemePack: user.hasThemePack || false,
                     friends: user.friends || [],
                     pendingRequests: user.pendingRequests || []
-                });
+                };
+
+                socket.emit('authSuccess', responseData);
+                if (typeof callback === 'function') callback({ success: true, user: responseData });
+            } else {
+                throw new Error('User not found');
             }
         } catch (err) {
+            console.warn(`[AUTH] Refused session for socket ${socket.id}: ${err.message}`);
             socket.emit('authError', 'Invalid session');
+            if (typeof callback === 'function') callback({ success: false, error: 'Invalid session' });
         }
     });
 
