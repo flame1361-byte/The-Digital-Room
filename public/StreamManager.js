@@ -48,8 +48,8 @@ class StreamManager {
 
     async startShare() {
         try {
-            console.log('[STREAM] Requesting screen share... (1440p constraints)');
-            // Optimized constraints for 1080p Clarity
+            console.log('[STREAM] Requesting screen share... (1080p/60fps/Hi-Fi Audio)');
+            // Optimized constraints for 1080p Clarity & Studio Audio
             const constraints = {
                 video: {
                     width: { ideal: 1920, max: 1920 },
@@ -57,9 +57,10 @@ class StreamManager {
                     frameRate: { ideal: 60, max: 60 }
                 },
                 audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: false
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                    channelCount: 2
                 }
             };
 
@@ -159,11 +160,15 @@ class StreamManager {
         try {
             let offer = await pc.createOffer();
 
-            // Bitrate Hack: Modify SDP to force 8Mbps
+            // Optimization Hack: Modify SDP for High Bitrate Video & Audio
             if (offer.sdp) {
+                let sdp = offer.sdp;
+                sdp = this.setVideoBitrate(sdp, 8000);
+                sdp = this.setAudioBitrate(sdp, 510);
+
                 offer = new RTCSessionDescription({
                     type: offer.type,
-                    sdp: this.setBitrate(offer.sdp, 8000)
+                    sdp: sdp
                 });
             }
 
@@ -174,7 +179,7 @@ class StreamManager {
         }
     }
 
-    setBitrate(sdp, bitrate) {
+    setVideoBitrate(sdp, bitrate) {
         const lines = sdp.split('\n');
         let lineIndex = -1;
         for (let i = 0; i < lines.length; i++) {
@@ -185,16 +190,50 @@ class StreamManager {
         }
         if (lineIndex === -1) return sdp;
 
-        // Skip to next m line or end of sdp
         lineIndex++;
         while (lineIndex < lines.length && lines[lineIndex].indexOf('m=') === -1) {
             if (lines[lineIndex].indexOf('c=') === 0) {
-                // Insert b=AS after c= line
                 lines.splice(lineIndex + 1, 0, 'b=AS:' + bitrate);
                 return lines.join('\n');
             }
             lineIndex++;
         }
+        return sdp;
+    }
+
+    setAudioBitrate(sdp, bitrate) {
+        // Opus High-Fidelity Hack
+        let lines = sdp.split('\n');
+
+        // 1. Boost bitrate via b=AS
+        let audioLine = -1;
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].indexOf('m=audio') === 0) {
+                audioLine = i;
+                break;
+            }
+        }
+
+        if (audioLine !== -1) {
+            let foundC = false;
+            for (let i = audioLine; i < lines.length && lines[i].indexOf('m=') !== 0 || i === audioLine; i++) {
+                if (lines[i].indexOf('c=') === 0) {
+                    lines.splice(i + 1, 0, 'b=AS:' + bitrate);
+                    foundC = true;
+                    break;
+                }
+            }
+        }
+
+        // 2. Enable Stereo and Max Bitrate in fmtp
+        sdp = lines.join('\n');
+        sdp = sdp.replace(/a=fmtp:(\d+) (.*)/g, (match, pt, params) => {
+            if (params.indexOf('opus') !== -1 || sdp.indexOf('a=rtpmap:' + pt + ' opus/48000/2') !== -1) {
+                return `a=fmtp:${pt} ${params};stereo=1;sprop-stereo=1;maxaveragebitrate=510000`;
+            }
+            return match;
+        });
+
         return sdp;
     }
 }
