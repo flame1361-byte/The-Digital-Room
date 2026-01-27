@@ -439,13 +439,25 @@ const presets = [
     { name: "Forest", bg: "#002200", panel: "#003300", border: "#228B22", accent: "#ADFF2F", text: "#FFFFFF" },
     { name: "Sunset", bg: "#FF4500", panel: "#FF6347", border: "#FFD700", accent: "#FFFFFF", text: "#FFFFFF" },
     { name: "Ocean", bg: "#1E90FF", panel: "#00BFFF", border: "#FFFFFF", accent: "#0047AB", text: "#000000" },
-    // --- THEME PACK EXTRA ---
-    { name: "Cyber-Goth", bg: "#0c001a", panel: "#1c0032", border: "#ff00ff", accent: "#00ffff", text: "#ffffff", premium: true },
-    { name: "Tokyo Drift", bg: "#000b1a", panel: "#001a33", border: "#00ffff", accent: "#00ff00", text: "#ffffff", premium: true },
-    { name: "Rose Gold Luxe", bg: "#1a0f0f", panel: "#2d1b1b", border: "#b76e79", accent: "#ffcfd2", text: "#ffffff", premium: true },
-    { name: "Deep Space", bg: "#05000a", panel: "#0d011a", border: "#6a0dad", accent: "#9b30ff", text: "#ffffff", premium: true },
-    { name: "Ocean Breeze", bg: "#001a1a", panel: "#002d2d", border: "#00ced1", accent: "#7fffd4", text: "#ffffff", premium: true },
-    { name: "Blood Moon", bg: "#1a0000", panel: "#2d0000", border: "#8b0000", accent: "#ff0000", text: "#ffffff", premium: true }
+    // Stream Volume Control
+    const streamVolumeSlider = document.getElementById('stream-volume-slider');
+const remoteVideo = document.getElementById('remote-stream-video');
+
+if (streamVolumeSlider && remoteVideo) {
+    streamVolumeSlider.addEventListener('input', (e) => {
+        const vol = parseFloat(e.target.value);
+        remoteVideo.volume = vol;
+        console.log('[STREAM] Client-side volume set to:', Math.round(vol * 100) + '%');
+    });
+}
+
+// --- SOUNDCLOUD PLAYER LOGIC ---
+{ name: "Cyber-Goth", bg: "#0c001a", panel: "#1c0032", border: "#ff00ff", accent: "#00ffff", text: "#ffffff", premium: true },
+{ name: "Tokyo Drift", bg: "#000b1a", panel: "#001a33", border: "#00ffff", accent: "#00ff00", text: "#ffffff", premium: true },
+{ name: "Rose Gold Luxe", bg: "#1a0f0f", panel: "#2d1b1b", border: "#b76e79", accent: "#ffcfd2", text: "#ffffff", premium: true },
+{ name: "Deep Space", bg: "#05000a", panel: "#0d011a", border: "#6a0dad", accent: "#9b30ff", text: "#ffffff", premium: true },
+{ name: "Ocean Breeze", bg: "#001a1a", panel: "#002d2d", border: "#00ced1", accent: "#7fffd4", text: "#ffffff", premium: true },
+{ name: "Blood Moon", bg: "#1a0000", panel: "#2d0000", border: "#8b0000", accent: "#ff0000", text: "#ffffff", premium: true }
 ];
 
 const applyPreset = (theme) => {

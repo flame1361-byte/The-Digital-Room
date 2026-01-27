@@ -1972,6 +1972,34 @@ footer {
     transform: translateY(1px);
 }
 
+#stream-volume-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    background: #333;
+    outline: none;
+    border: 1px solid #fff;
+    border-radius: 0;
+}
+
+#stream-volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 18px;
+    background: #ff0055;
+    cursor: pointer;
+    border: 2px outset #fff;
+}
+
+#stream-volume-slider::-moz-range-thumb {
+    width: 12px;
+    height: 18px;
+    background: #ff0055;
+    cursor: pointer;
+    border: 2px outset #fff;
+    border-radius: 0;
+}
+
 /* --- AD SYSTEM & MONETIZATION --- */
 .ad-grid {
     display: flex;

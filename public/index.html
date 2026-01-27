@@ -110,12 +110,18 @@
                                 AWAITING SIGNAL...</div>
                         </div>
                         <div id="stream-join-ui"
-                            style="position: absolute; bottom: 10px; right: 10px; pointer-events: auto;">
+                            style="position: absolute; bottom: 10px; right: 10px; pointer-events: auto; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 4px;">
+                            <div id="stream-volume-control" style="display: flex; align-items: center; gap: 5px;">
+                                <span
+                                    style="font-size: 0.7rem; color: #fff; font-family: 'VT323', monospace;">VOL:</span>
+                                <input type="range" id="stream-volume-slider" min="0" max="1" step="0.01" value="1"
+                                    style="width: 80px; height: 10px; cursor: pointer; accent-color: #ff0055;">
+                            </div>
                             <button id="join-stream-btn"
-                                style="background: #00ff00; color: #000; border: none; padding: 5px 15px; font-weight: bold; cursor: pointer;">JOIN
+                                style="background: #00ff00; color: #000; border: none; padding: 5px 15px; font-weight: bold; cursor: pointer; font-family: 'VT323', monospace;">JOIN
                                 STREAM</button>
                             <button id="leave-stream-btn"
-                                style="background: #ff0000; color: #fff; border: none; padding: 5px 15px; font-weight: bold; cursor: pointer; display: none;">LEAVE</button>
+                                style="background: #ff0000; color: #fff; border: none; padding: 5px 15px; font-weight: bold; cursor: pointer; display: none; font-family: 'VT323', monospace;">LEAVE</button>
                         </div>
                     </div>
                 </div>
