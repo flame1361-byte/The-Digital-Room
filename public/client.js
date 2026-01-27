@@ -153,7 +153,6 @@ socket.on('disconnect', () => {
 });
 
 socket.on('init', (data) => {
-    console.log('Received init:', data);
     myId = data.yourId;
     currentRoomState = data.state;
     updateUI();
@@ -323,7 +322,6 @@ setInterval(() => {
 }, 10000);
 
 socket.on('djChanged', (data) => {
-    console.log('DJ Changed Event:', data);
     currentRoomState.djId = data.djId;
     isDJ = (myId === data.djId);
 
@@ -1126,7 +1124,6 @@ loadTrackBtn.onclick = () => {
 };
 
 claimDjBtn.onclick = () => {
-    console.log('Click: Requesting DJ status...');
     socket.emit('requestDJ');
 };
 
@@ -1160,14 +1157,12 @@ function syncWithDJ(state) {
         const soundUrl = sound ? sound.permalink_url : null;
 
         if (soundUrl !== state.currentTrack) {
-            console.log(`[SYNC] New track: ${state.currentTrack}. Packet Age: ${packetAge}ms`);
             widget.load(state.currentTrack, {
                 auto_play: state.isPlaying,
                 callback: () => {
                     widget.seekTo(targetPos);
                     widget.setVolume(volume); // Maintain local volume
                     currentTrackLabel.textContent = state.currentTrack;
-                    console.log(`[SYNC] Track loaded and compensated to ${targetPos}ms (Vol: ${volume}%)`);
                     syncLock = false;
                 }
             });
@@ -1177,17 +1172,14 @@ function syncWithDJ(state) {
                 const drift = Math.abs(pos - targetPos);
                 // Tight threshold with compensation: 500ms (Zero-Lag)
                 if (drift > 500) {
-                    console.warn(`[SYNC] Precision Drift: ${drift}ms. Adjusting to ${targetPos}ms...`);
                     widget.seekTo(targetPos);
                 }
             });
 
             widget.isPaused((isPaused) => {
                 if (state.isPlaying && isPaused) {
-                    console.log('[SYNC] DJ is playing, resuming locally...');
                     widget.play();
                 } else if (!state.isPlaying && !isPaused) {
-                    console.log('[SYNC] DJ is paused, pausing locally...');
                     widget.pause();
                 }
             });
@@ -1199,25 +1191,21 @@ function syncWithDJ(state) {
 // --- Widget Event Listeners (For DJ and Sync Enforcement) ---
 
 widget.bind(SC.Widget.Events.READY, () => {
-    console.log('SC Widget Ready');
     widget.setVolume(volume); // Ensure volume is applied on ready
 
     // DJ Bindings: Instant Event-Driven Broadcasts
     widget.bind(SC.Widget.Events.PLAY, () => {
         if (isDJ) {
-            console.log("DJ: Play event, broadcasting...");
             emitDJUpdate();
         }
     });
 
     widget.bind(SC.Widget.Events.PAUSE, () => {
         if (isDJ) {
-            console.log("DJ: Pause event, broadcasting...");
             emitDJUpdate();
         } else {
             // Bulletproof Enforcement: If room is playing, don't let listeners pause!
             if (currentRoomState.isPlaying) {
-                console.log('SYNC SHIELD: Resuming playback (Listeners cannot pause)...');
                 widget.play();
             }
         }
@@ -1225,19 +1213,16 @@ widget.bind(SC.Widget.Events.READY, () => {
 
     widget.bind(SC.Widget.Events.FINISH, () => {
         if (isDJ) {
-            console.log("DJ: Track finished, broadcasting new state...");
             emitDJUpdate();
         }
     });
 
     widget.bind(SC.Widget.Events.SEEK, () => {
         if (isDJ) {
-            console.log("DJ: Seek event, broadcasting instantly...");
             emitDJUpdate();
         } else {
             // Bulletproof Enforcement: If listener tries to seek, snap them back to DJ
             if (currentRoomState.isPlaying && !isDJ) {
-                console.log('SYNC SHIELD: Snapping back to DJ position...');
                 // Calculate position with latency compensation
                 const packetAge = currentRoomState.serverTime ? (Date.now() - currentRoomState.serverTime) : 0;
                 const targetPos = currentRoomState.seekPosition + packetAge;

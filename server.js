@@ -61,7 +61,6 @@ async function seedStaff() {
 // Periodic cleanup
 setInterval(() => {
     if (roomState.djId && !roomState.users[roomState.djId]) {
-        console.log("Cleanup: Removing ghost DJ", roomState.djId);
         roomState.djId = null;
         roomState.djUsername = null;
         io.emit('djChanged', { djId: null });
