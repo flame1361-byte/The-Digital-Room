@@ -529,32 +529,28 @@ changeNameBtn.onclick = () => {
     }
 };
 
-function sendMessage() {
-    const text = chatInput.value.trim();
-    if (!text) return;
+const msgData = {
+    userName: currentUser ? currentUser.username : 'Guest',
+    text,
+    badge: currentUser ? currentUser.badge : null,
+    nameStyle: currentUser ? currentUser.nameStyle : null,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    localEcho: true // Mark as optimistic
+};
 
-    // DJ commands
-    if (isDJ) {
-        if (text.startsWith('/play ')) {
-            const url = text.replace('/play ', '');
-            widget.load(url, {
-                auto_play: true,
-                callback: () => widget.setVolume(volume)
-            });
-            chatInput.value = '';
-            return;
-        }
-    }
+// Instant local render
+renderMessage(msgData);
+chatInput.value = '';
 
-    socket.emit('sendMessage', {
-        text,
-        badge: currentUser ? currentUser.badge : null,
-        nameStyle: currentUser ? currentUser.nameStyle : null
-    });
-    chatInput.value = '';
+socket.emit('sendMessage', msgData);
 }
 
 socket.on('newMessage', (msg) => {
+    // If we're the sender, we've already rendered this (optimistic update)
+    if (currentUser && msg.userName === currentUser.username && !msg.isSystem) {
+        // Find and remove the "loading/echo" styling if any, or just skip
+        return;
+    }
     renderMessage(msg);
 });
 
