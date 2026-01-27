@@ -293,7 +293,7 @@ function renderUserList() {
                     ${user.name === 'kaid' ? '<span class="co-owner-badge" title="CO-OWNER">♦</span>' : ''}
                     ${user.name === 'mummy' ? '<span class="co-admin-badge" title="CO-ADMIN">⚡</span>' : ''}
                 </div>
-                ${user.status ? `<div class="user-status-item">“${user.status}”</div>` : ''}
+                ${user.status ? `<div class="user-status-item"><span>“${user.status}”</span></div>` : ''}
             </div>
         `;
         usersContainer.appendChild(div);
@@ -560,7 +560,8 @@ function sendMessage() {
         text,
         badge: currentUser ? currentUser.badge : null,
         nameStyle: currentUser ? currentUser.nameStyle : null,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        status: currentUser ? currentUser.status : null,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         localEcho: true // Mark as optimistic
     };
 
