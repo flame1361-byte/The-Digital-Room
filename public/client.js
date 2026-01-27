@@ -263,36 +263,38 @@ socket.on('userPartialUpdate', (delta) => {
 
 function renderUserList() {
     if (!usersContainer) return;
-    const users = Object.values(currentRoomState.users || {});
-    usersContainer.innerHTML = '';
-    users.forEach(user => {
-        const div = document.createElement('div');
-        div.className = 'user-item';
-        div.style.cursor = 'pointer';
-        div.title = `Click to chat with ${user.name}`;
-        div.onclick = () => openPrivateChat(user.name);
+    requestAnimationFrame(() => {
+        const users = Object.values(currentRoomState.users || {});
+        usersContainer.innerHTML = '';
+        users.forEach(user => {
+            const div = document.createElement('div');
+            div.className = 'user-item';
+            div.style.cursor = 'pointer';
+            div.title = `Click to chat with ${user.name}`;
+            div.onclick = () => openPrivateChat(user.name);
 
-        // Color-coded ping
-        let pingColor = '#00ff00';
-        if (user.ping > 120) pingColor = '#ffff00';
-        if (user.ping > 250) pingColor = '#ff0000';
-        const pingDisplay = user.ping ? `<span style="color: ${pingColor}; font-size: 0.7em; margin-left: 5px; font-family: monospace;">[${user.ping}ms]</span>` : '';
+            // Color-coded ping
+            let pingColor = '#00ff00';
+            if (user.ping > 120) pingColor = '#ffff00';
+            if (user.ping > 250) pingColor = '#ff0000';
+            const pingDisplay = user.ping ? `<span style="color: ${pingColor}; font-size: 0.7em; margin-left: 5px; font-family: monospace;">[${user.ping}ms]</span>` : '';
 
-        div.innerHTML = `
-            <img src="${user.badge}" class="user-badge" />
-            <div style="display: flex; flex-direction: column;">
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <span class="${user.nameStyle || ''}">${user.name}</span>
-                    ${pingDisplay}
-                    ${user.id === currentRoomState.djId ? '<span class="blinker" style="color:yellow; font-size: 0.6rem;">[DJ]</span>' : ''}
-                    ${user.name === 'mayne' ? '<span class="creator-badge" title="ROOM ARCHITECT">★</span>' : ''}
-                    ${user.name === 'kaid' ? '<span class="co-owner-badge" title="CO-OWNER">♦</span>' : ''}
-                    ${user.name === 'mummy' ? '<span class="co-admin-badge" title="CO-ADMIN">⚡</span>' : ''}
+            div.innerHTML = `
+                <img src="${user.badge}" class="user-badge" />
+                <div style="display: flex; flex-direction: column;">
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span class="${user.nameStyle || ''}">${user.name}</span>
+                        ${pingDisplay}
+                        ${user.id === currentRoomState.djId ? '<span class="blinker" style="color:yellow; font-size: 0.6rem;">[DJ]</span>' : ''}
+                        ${user.name === 'mayne' ? '<span class="creator-badge" title="ROOM ARCHITECT">★</span>' : ''}
+                        ${user.name === 'kaid' ? '<span class="co-owner-badge" title="CO-OWNER">♦</span>' : ''}
+                        ${user.name === 'mummy' ? '<span class="co-admin-badge" title="CO-ADMIN">⚡</span>' : ''}
+                    </div>
+                    ${user.status ? `<div class="user-status-item"><span>“${user.status}”</span></div>` : ''}
                 </div>
-                ${user.status ? `<div class="user-status-item"><span>“${user.status}”</span></div>` : ''}
-            </div>
-        `;
-        usersContainer.appendChild(div);
+            `;
+            usersContainer.appendChild(div);
+        });
     });
 }
 
@@ -367,11 +369,13 @@ window.onmouseup = () => {
 };
 
 function updateVolumeUI() {
-    // Rotation: -135deg (0%) to 135deg (100%)
-    const rotation = ((volume / 100) * 270) - 135;
-    if (knobIndicator) knobIndicator.style.transform = `rotate(${rotation}deg)`;
-    if (volumePct) volumePct.textContent = `${Math.round(volume)}%`;
-    if (widget) widget.setVolume(volume);
+    requestAnimationFrame(() => {
+        // Rotation: -135deg (0%) to 135deg (100%)
+        const rotation = ((volume / 100) * 270) - 135;
+        if (knobIndicator) knobIndicator.style.transform = `rotate(${rotation}deg)`;
+        if (volumePct) volumePct.textContent = `${Math.round(volume)}%`;
+        if (widget) widget.setVolume(volume);
+    });
 }
 
 // Set initial visual state
@@ -521,23 +525,25 @@ socket.on('newMessage', (msg) => {
 });
 
 function renderMessage(msg) {
-    const msgDiv = document.createElement('div');
-    msgDiv.className = `msg ${msg.isSystem ? 'system' : ''}`;
+    requestAnimationFrame(() => {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `msg ${msg.isSystem ? 'system' : ''}`;
 
-    // Add PFP to chat message if not a system message
-    const pfpHtml = msg.isSystem ? '' : `<img src="${msg.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6JnB0X2lkPWdpcGh5X2dpZl9zZWFyY2gmZXA9djFfZ2lmX3NlYXJjaCZyaWQ9Z2lwaHkuZ2lmJmN0PWc/3o7TKMGpxPAb3NGoPC/giphy.gif'}" class="chat-pfp" />`;
+        // Add PFP to chat message if not a system message
+        const pfpHtml = msg.isSystem ? '' : `<img src="${msg.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6JnB0X2lkPWdpcGh5X2dpZl9zZWFyY2gmZXA9djFfZ2lmX3NlYXJjaCZyaWQ9Z2lwaHkuZ2lmJmN0PWc/3o7TKMGpxPAb3NGoPC/giphy.gif'}" class="chat-pfp" />`;
 
-    msgDiv.innerHTML = `
-        ${pfpHtml}
-        <div class="msg-content">
-            <span class="time">[${msg.timestamp}]</span> 
-            <span class="name ${msg.nameStyle || ''}">${msg.userName}${msg.userName === 'mayne' ? ' <span class="creator-tag">[SERVER CREATOR]</span>' : ''}${msg.userName === 'kaid' ? ' <span class="co-owner-tag">[CO-OWNER]</span>' : ''}${msg.userName === 'mummy' ? ' <span class="co-admin-tag">[CO-ADMIN]</span>' : ''}:</span> 
-            ${msg.status ? `<span class="chat-status">[${msg.status}]</span>` : ''}
-            <span class="text">${msg.text}</span>
-        </div>
-    `;
-    chatMessages.appendChild(msgDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+        msgDiv.innerHTML = `
+            ${pfpHtml}
+            <div class="msg-content">
+                <span class="time">[${msg.timestamp}]</span> 
+                <span class="name ${msg.nameStyle || ''}">${msg.userName}${msg.userName === 'mayne' ? ' <span class="creator-tag">[SERVER CREATOR]</span>' : ''}${msg.userName === 'kaid' ? ' <span class="co-owner-tag">[CO-OWNER]</span>' : ''}${msg.userName === 'mummy' ? ' <span class="co-admin-tag">[CO-ADMIN]</span>' : ''}:</span> 
+                ${msg.status ? `<span class="chat-status">[${msg.status}]</span>` : ''}
+                <span class="text">${msg.text}</span>
+            </div>
+        `;
+        chatMessages.appendChild(msgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
 }
 
 function addSystemMessage(text) {
@@ -894,50 +900,52 @@ async function acceptFriend(requesterUsername) {
 window.acceptFriend = acceptFriend;
 
 function renderFriendsLists(friends, pending) {
-    // Render Modal Pending
-    if (pendingRequestsList) {
-        pendingRequestsList.innerHTML = pending.length ? '' : '<div style="color: #666; padding: 5px;">NO PENDING REQUESTS</div>';
-        pending.forEach(req => {
-            const div = document.createElement('div');
-            div.className = 'pending-item';
-            div.innerHTML = `
-                <span>${req}</span>
-                <button onclick="acceptFriend('${req}')">ACCEPT</button>
-            `;
-            pendingRequestsList.appendChild(div);
-        });
-    }
+    requestAnimationFrame(() => {
+        // Render Modal Pending
+        if (pendingRequestsList) {
+            pendingRequestsList.innerHTML = pending.length ? '' : '<div style="color: #666; padding: 5px;">NO PENDING REQUESTS</div>';
+            pending.forEach(req => {
+                const div = document.createElement('div');
+                div.className = 'pending-item';
+                div.innerHTML = `
+                    <span>${req}</span>
+                    <button onclick="acceptFriend('${req}')">ACCEPT</button>
+                `;
+                pendingRequestsList.appendChild(div);
+            });
+        }
 
-    // Render Modal Friends
-    if (friendsListModal) {
-        friendsListModal.innerHTML = friends.length ? '' : '<div style="color: #666; padding: 5px;">NO FRIENDS YET</div>';
-        friends.forEach(f => {
-            const div = document.createElement('div');
-            div.className = 'modal-friend-item';
-            div.innerHTML = `
-                <div style="display:flex; align-items:center; gap:5px;">
-                    <img src="${f.badge}" style="width:20px; height:20px; border-radius:50%;" />
+        // Render Modal Friends
+        if (friendsListModal) {
+            friendsListModal.innerHTML = friends.length ? '' : '<div style="color: #666; padding: 5px;">NO FRIENDS YET</div>';
+            friends.forEach(f => {
+                const div = document.createElement('div');
+                div.className = 'modal-friend-item';
+                div.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <img src="${f.badge}" style="width:20px; height:20px; border-radius:50%;" />
+                        <span class="${f.nameStyle}">${f.username}</span>
+                        <span style="font-size:0.5rem; color:${f.isOnline ? '#0f0' : '#555'}">[${f.isOnline ? 'ONLINE' : 'OFFLINE'}]</span>
+                    </div>
+                `;
+                friendsListModal.appendChild(div);
+            });
+        }
+
+        // Update Top Friends Grid (Sidebar)
+        if (topFriendsGrid) {
+            topFriendsGrid.innerHTML = friends.length ? '' : '<div style="grid-column: span 3; text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">ADD FRIENDS IN SETTINGS</div>';
+            friends.slice(0, 9).forEach(f => {
+                const div = document.createElement('div');
+                div.className = 'friend-item';
+                div.innerHTML = `
+                    <img src="${f.badge}" class="friend-pfp" />
                     <span class="${f.nameStyle}">${f.username}</span>
-                    <span style="font-size:0.5rem; color:${f.isOnline ? '#0f0' : '#555'}">[${f.isOnline ? 'ONLINE' : 'OFFLINE'}]</span>
-                </div>
-            `;
-            friendsListModal.appendChild(div);
-        });
-    }
-
-    // Update Top Friends Grid (Sidebar)
-    if (topFriendsGrid) {
-        topFriendsGrid.innerHTML = friends.length ? '' : '<div style="grid-column: span 3; text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">ADD FRIENDS IN SETTINGS</div>';
-        friends.slice(0, 9).forEach(f => {
-            const div = document.createElement('div');
-            div.className = 'friend-item';
-            div.innerHTML = `
-                <img src="${f.badge}" class="friend-pfp" />
-                <span class="${f.nameStyle}">${f.username}</span>
-            `;
-            topFriendsGrid.appendChild(div);
-        });
-    }
+                `;
+                topFriendsGrid.appendChild(div);
+            });
+        }
+    });
 }
 
 // --- Admin System Logic ---
@@ -957,16 +965,18 @@ if (tabAdminBtn) {
 function updateAdminUI() {
     if (!currentUser || currentUser.username !== 'mayne' || !adminUserList) return;
 
-    adminUserList.innerHTML = '';
-    Object.values(currentRoomState.users || {}).forEach(u => {
-        if (u.id === myId) return;
-        const div = document.createElement('div');
-        div.className = 'admin-client-item';
-        div.innerHTML = `
-            <span>${u.name} (${u.id.substring(0, 5)}...)</span>
-            <button class="kick-btn" onclick="adminKick('${u.id}')">KICK</button>
-        `;
-        adminUserList.appendChild(div);
+    requestAnimationFrame(() => {
+        adminUserList.innerHTML = '';
+        Object.values(currentRoomState.users || {}).forEach(u => {
+            if (u.id === myId) return;
+            const div = document.createElement('div');
+            div.className = 'admin-client-item';
+            div.innerHTML = `
+                <span>${u.name} (${u.id.substring(0, 5)}...)</span>
+                <button class="kick-btn" onclick="adminKick('${u.id}')">KICK</button>
+            `;
+            adminUserList.appendChild(div);
+        });
     });
 }
 
@@ -1000,12 +1010,14 @@ if (adminAnnClearBtn) {
 
 function renderAnnouncement(text) {
     if (!announcementBanner) return;
-    if (text) {
-        announcementBanner.textContent = `*** ATTENTION: ${text} ***`;
-        announcementBanner.style.display = 'block';
-    } else {
-        announcementBanner.style.display = 'none';
-    }
+    requestAnimationFrame(() => {
+        if (text) {
+            announcementBanner.textContent = `*** ATTENTION: ${text} ***`;
+            announcementBanner.style.display = 'block';
+        } else {
+            announcementBanner.style.display = 'none';
+        }
+    });
 }
 
 if (adminClearChatBtn) {
@@ -1166,12 +1178,14 @@ widget.bind(SC.Widget.Events.READY, () => {
 });
 
 function updateUI() {
-    isDJ = (myId === currentRoomState.djId);
-    claimDjBtn.style.display = currentRoomState.djId ? 'none' : 'block';
-    djToolset.style.display = isDJ ? 'flex' : 'none';
-    if (currentRoomState.djId) {
-        djStatus.textContent = `DJ CONNECTED`;
-    }
+    requestAnimationFrame(() => {
+        isDJ = (myId === currentRoomState.djId);
+        claimDjBtn.style.display = currentRoomState.djId ? 'none' : 'block';
+        djToolset.style.display = isDJ ? 'flex' : 'none';
+        if (currentRoomState.djId) {
+            djStatus.textContent = `DJ CONNECTED`;
+        }
+    });
 }
 
 // --- Voice UI Logic ---
@@ -1264,30 +1278,32 @@ if (navigator.mediaDevices && navigator.mediaDevices.ondevicechange !== undefine
 
 window.updateVoiceUI = (voiceUsers) => {
     if (!voiceUsersContainer) return;
-    voiceUsersContainer.innerHTML = '';
+    requestAnimationFrame(() => {
+        voiceUsersContainer.innerHTML = '';
 
-    if (!voiceUsers || voiceUsers.length === 0) {
-        voiceUsersContainer.innerHTML = '<div style="text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">CHANNEL EMPTY</div>';
-        return;
-    }
+        if (!voiceUsers || voiceUsers.length === 0) {
+            voiceUsersContainer.innerHTML = '<div style="text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">CHANNEL EMPTY</div>';
+            return;
+        }
 
-    voiceUsers.forEach(vUser => {
-        const avatar = vUser.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6JnB0X2lkPWdpcGh5X2dpZl9zZWFyY2gmZXA9djFfZ2lmX3NlYXJjaCZyaWQ9Z2lwaHkuZ2lmJmN0PWc/3o7TKMGpxPAb3NGoPC/giphy.gif';
-        const nameStyle = vUser.nameStyle || '';
+        voiceUsers.forEach(vUser => {
+            const avatar = vUser.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6JnB0X2lkPWdpcGh5X2dpZl9zZWFyY2gmZXA9djFfZ2lmX3NlYXJjaCZyaWQ9Z2lwaHkuZ2lmJmN0PWc/3o7TKMGpxPAb3NGoPC/giphy.gif';
+            const nameStyle = vUser.nameStyle || '';
 
-        const div = document.createElement('div');
-        div.className = 'voice-user-item';
-        div.innerHTML = `
-            <img src="${avatar}" class="voice-user-avatar" />
-            <div class="voice-user-info">
-                <span style="font-weight: bold;" class="${nameStyle}">${vUser.name}</span>
-            </div>
-            <div class="voice-status-icons">
-                ${vUser.muted ? '<span class="muted-icon">🔇</span>' : ''}
-                ${vUser.deafened ? '<span class="deafened-icon">🎧❌</span>' : ''}
-            </div>
-        `;
-        voiceUsersContainer.appendChild(div);
+            const div = document.createElement('div');
+            div.className = 'voice-user-item';
+            div.innerHTML = `
+                <img src="${avatar}" class="voice-user-avatar" />
+                <div class="voice-user-info">
+                    <span style="font-weight: bold;" class="${nameStyle}">${vUser.name}</span>
+                </div>
+                <div class="voice-status-icons">
+                    ${vUser.muted ? '<span class="muted-icon">🔇</span>' : ''}
+                    ${vUser.deafened ? '<span class="deafened-icon">🎧❌</span>' : ''}
+                </div>
+            `;
+            voiceUsersContainer.appendChild(div);
+        });
     });
 };
 
@@ -1355,41 +1371,43 @@ function openPrivateChat(username) {
 function updateChatboxUI() {
     if (!chatboxContactsList || !theChatboxMessages) return;
 
-    // Render Contacts
-    const names = Object.keys(activeDMs);
-    chatboxContactsList.innerHTML = names.length ? '' : '<div style="padding: 10px; font-size: 0.6rem; color: #666;">NO ACTIVE CHATS</div>';
+    requestAnimationFrame(() => {
+        // Render Contacts
+        const names = Object.keys(activeDMs);
+        chatboxContactsList.innerHTML = names.length ? '' : '<div style="padding: 10px; font-size: 0.6rem; color: #666;">NO ACTIVE CHATS</div>';
 
-    names.forEach(name => {
-        const unread = unreadCounts[name] || 0;
-        const div = document.createElement('div');
-        div.className = `chatbox-contact-item ${name === currentDMTarget ? 'active' : ''}`;
-        div.innerHTML = `
-            <span>${name}</span>
-            ${unread > 0 ? `<span class="contact-badge">${unread}</span>` : ''}
-        `;
-        div.onclick = (e) => {
-            e.stopPropagation();
-            openPrivateChat(name);
-        };
-        chatboxContactsList.appendChild(div);
-    });
-
-    // Render Messages for current target
-    if (currentDMTarget) {
-        theChatboxMessages.innerHTML = '';
-        const msgs = activeDMs[currentDMTarget] || [];
-        msgs.forEach(m => {
-            const isSent = m.from === currentUser.username;
+        names.forEach(name => {
+            const unread = unreadCounts[name] || 0;
             const div = document.createElement('div');
-            div.className = `dm-msg ${isSent ? 'sent' : 'received'}`;
+            div.className = `chatbox-contact-item ${name === currentDMTarget ? 'active' : ''}`;
             div.innerHTML = `
-                <div class="dm-text">${m.text}</div>
-                <span class="dm-time">${m.timestamp}</span>
+                <span>${name}</span>
+                ${unread > 0 ? `<span class="contact-badge">${unread}</span>` : ''}
             `;
-            theChatboxMessages.appendChild(div);
+            div.onclick = (e) => {
+                e.stopPropagation();
+                openPrivateChat(name);
+            };
+            chatboxContactsList.appendChild(div);
         });
-        theChatboxMessages.scrollTop = theChatboxMessages.scrollHeight;
-    }
+
+        // Render Messages for current target
+        if (currentDMTarget) {
+            theChatboxMessages.innerHTML = '';
+            const msgs = activeDMs[currentDMTarget] || [];
+            msgs.forEach(m => {
+                const isSent = m.from === currentUser.username;
+                const div = document.createElement('div');
+                div.className = `dm-msg ${isSent ? 'sent' : 'received'}`;
+                div.innerHTML = `
+                    <div class="dm-text">${m.text}</div>
+                    <span class="dm-time">${m.timestamp}</span>
+                `;
+                theChatboxMessages.appendChild(div);
+            });
+            theChatboxMessages.scrollTop = theChatboxMessages.scrollHeight;
+        }
+    });
 }
 
 chatboxSend.onclick = sendPrivateMessage;

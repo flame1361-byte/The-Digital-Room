@@ -89,6 +89,9 @@ header h1 {
     box-shadow: 0 0 15px var(--accent-color), 0 4px 0 #000;
     animation: donate-pulse 2s infinite, gold-shimmer 3s linear infinite;
     transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform: translateZ(0);
+    will-change: transform, box-shadow, filter;
+    backface-visibility: hidden;
 }
 
 .donate-button-animated:hover {
@@ -173,6 +176,12 @@ main {
     transform: rotate(0deg) scale(1.1);
 }
 
+.user-badge {
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+}
+
 .user-status-item {
     font-size: 0.8rem;
     font-style: italic;
@@ -189,6 +198,9 @@ main {
     display: inline-block;
     padding-left: 100%;
     animation: status-marquee 15s linear infinite;
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
 }
 
 .chat-status {
@@ -207,6 +219,9 @@ main {
     white-space: nowrap;
     vertical-align: middle;
     animation: status-slide-in 0.5s ease-out;
+    transform: translateZ(0);
+    will-change: transform, opacity;
+    backface-visibility: hidden;
 }
 
 @keyframes status-marquee {
@@ -259,6 +274,9 @@ main {
     border-color: #00ff00 !important;
     box-shadow: 0 0 8px #00ff00;
     animation: voice-glow 1.5s infinite;
+    transform: translateZ(0);
+    will-change: box-shadow;
+    backface-visibility: hidden;
 }
 
 @keyframes voice-glow {
@@ -1840,6 +1858,9 @@ footer {
         0 0 20px #32cd32;
     animation: warlock-glow 2s ease-in-out infinite alternate, warlock-void 3s infinite;
     letter-spacing: 2px;
+    transform: translateZ(0);
+    will-change: transform, text-shadow, filter;
+    backface-visibility: hidden;
 }
 
 @keyframes warlock-glow {
@@ -1911,6 +1932,9 @@ footer {
     border: 1px solid #fff;
     z-index: 5;
     animation: ad-pulse 1s infinite alternate;
+    transform: translateZ(0);
+    will-change: transform, filter;
+    backface-visibility: hidden;
 }
 
 @keyframes ad-pulse {
@@ -1945,4 +1969,16 @@ footer {
     height: 31px;
     border: 1px solid #444;
     cursor: pointer;
+}
+
+.blinker {
+    animation: blinker-pulse 1s linear infinite;
+    transform: translateZ(0);
+    will-change: opacity;
+}
+
+@keyframes blinker-pulse {
+    50% {
+        opacity: 0.3;
+    }
 }
