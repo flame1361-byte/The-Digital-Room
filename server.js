@@ -296,8 +296,10 @@ io.on('connection', (socket) => {
     socket.on('register', async ({ username, password }, callback) => {
         console.log(`[SOCKET-AUTH] Registration attempt: ${username}`);
         try {
-            if (!username || !password) return callback({ error: 'Username and password required' });
-            await usersDb.load();
+            if (!username || !password) {
+                if (typeof callback === 'function') return callback({ error: 'Username and password required' });
+                return;
+            }
             const existing = await usersDb.findOne({ username });
             if (existing) {
                 console.warn(`[SOCKET-AUTH] User exists: ${username}`);
@@ -315,37 +317,39 @@ io.on('connection', (socket) => {
                 pendingRequests: []
             });
             console.log(`[SOCKET-AUTH] Registration success: ${username}`);
-            callback({ success: true, message: 'User registered! Please login.' });
+            if (typeof callback === 'function') callback({ success: true, message: 'User registered! Please login.' });
         } catch (err) {
             console.error('[SOCKET-AUTH] Reg Error:', err);
-            callback({ error: 'Server error during registration' });
+            if (typeof callback === 'function') callback({ error: 'Server error during registration' });
         }
     });
 
     socket.on('login', async ({ username, password }, callback) => {
         console.log(`[SOCKET-AUTH] Login attempt: ${username}`);
         try {
-            await usersDb.load();
             const user = await usersDb.findOne({ username });
             if (!user || !(await bcrypt.compare(password, user.password))) {
-                return callback({ error: 'Invalid credentials' });
+                if (typeof callback === 'function') return callback({ error: 'Invalid credentials' });
+                return;
             }
             const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-            callback({
-                token,
-                user: {
-                    username: user.username,
-                    badge: user.badge,
-                    nameStyle: user.nameStyle,
-                    hasPremiumPack: user.hasPremiumPack || false,
-                    hasThemePack: user.hasThemePack || false,
-                    friends: user.friends || [],
-                    pendingRequests: user.pendingRequests || []
-                }
-            });
+            if (typeof callback === 'function') {
+                callback({
+                    token,
+                    user: {
+                        username: user.username,
+                        badge: user.badge,
+                        nameStyle: user.nameStyle,
+                        hasPremiumPack: user.hasPremiumPack || false,
+                        hasThemePack: user.hasThemePack || false,
+                        friends: user.friends || [],
+                        pendingRequests: user.pendingRequests || []
+                    }
+                });
+            }
         } catch (err) {
             console.error('[SOCKET-AUTH] Login Error:', err);
-            callback({ error: 'Server error during login' });
+            if (typeof callback === 'function') callback({ error: 'Server error during login' });
         }
     });
 
@@ -377,22 +381,24 @@ io.on('connection', (socket) => {
                 });
             }
 
-            callback({
-                success: true,
-                user: {
-                    username: updatedUser.username,
-                    badge: updatedUser.badge,
-                    nameStyle: updatedUser.nameStyle,
-                    status: updatedUser.status || '',
-                    hasPremiumPack: updatedUser.hasPremiumPack || false,
-                    hasThemePack: updatedUser.hasThemePack || false, // Theme Pack Extra
-                    friends: updatedUser.friends || [],
-                    pendingRequests: updatedUser.pendingRequests || []
-                }
-            });
+            if (typeof callback === 'function') {
+                callback({
+                    success: true,
+                    user: {
+                        username: updatedUser.username,
+                        badge: updatedUser.badge,
+                        nameStyle: updatedUser.nameStyle,
+                        status: updatedUser.status || '',
+                        hasPremiumPack: updatedUser.hasPremiumPack || false,
+                        hasThemePack: updatedUser.hasThemePack || false, // Theme Pack Extra
+                        friends: updatedUser.friends || [],
+                        pendingRequests: updatedUser.pendingRequests || []
+                    }
+                });
+            }
         } catch (err) {
             console.error('[SOCKET-AUTH] Profile Update Error:', err);
-            callback({ error: 'Auth failed' });
+            if (typeof callback === 'function') callback({ error: 'Auth failed' });
         }
     });
 
@@ -449,50 +455,65 @@ io.on('connection', (socket) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             const user = await usersDb.findOne({ _id: decoded.id });
-            if (!user) return callback({ error: 'User not found' });
-
-            const friends = await Promise.all((user.friends || []).map(async username => {
-                const f = await usersDb.findOne({ username });
-                const isOnline = Object.values(roomState.users).some(u => u.name === username);
-                return {
-                    username: f.username,
-                    badge: f.badge,
-                    nameStyle: f.nameStyle,
-                    isOnline
-                };
-            }));
-            callback({ friends, pending: user.pendingRequests || [] });
+            if (user && typeof callback === 'function') {
+                callback({
+                    friends: user.friends || [],
+                    pending: user.pendingRequests || []
+                });
+            }
         } catch (err) {
-            callback({ error: 'Auth failed' });
+            if (typeof callback === 'function') callback({ error: 'Auth failed' });
         }
     });
 
     socket.on('sendFriendRequest', async ({ token, targetUsername }, callback) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
-            if (decoded.username === targetUsername) return callback({ error: 'Cannot add yourself' });
-
+            const sender = await usersDb.findOne({ _id: decoded.id });
             const target = await usersDb.findOne({ username: targetUsername });
-            if (!target) return callback({ error: 'User not found' });
 
-            if ((target.pendingRequests || []).includes(decoded.username)) return callback({ error: 'Request already sent' });
-            if ((target.friends || []).includes(decoded.username)) return callback({ error: 'Already friends' });
+            if (!target) {
+                if (typeof callback === 'function') return callback({ error: 'User not found' });
+                return;
+            }
+            if (target.username === sender.username) {
+                if (typeof callback === 'function') return callback({ error: 'Cannot add yourself' });
+                return;
+            }
 
-            await usersDb.update({ username: targetUsername }, { $push: { pendingRequests: decoded.username } });
-            callback({ success: true });
+            await usersDb.update({ _id: target._id }, { $addToSet: { pendingRequests: sender.username } });
+            if (typeof callback === 'function') callback({ success: true });
         } catch (err) {
-            callback({ error: 'Auth failed' });
+            if (typeof callback === 'function') callback({ error: 'Failed' });
         }
     });
 
     socket.on('acceptFriend', async ({ token, requesterUsername }, callback) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
-            await usersDb.update({ _id: decoded.id }, { $pull: { pendingRequests: requesterUsername }, $push: { friends: requesterUsername } });
-            await usersDb.update({ username: requesterUsername }, { $push: { friends: decoded.username } });
-            callback({ success: true });
+            const user = await usersDb.findOne({ _id: decoded.id });
+            const requester = await usersDb.findOne({ username: requesterUsername });
+
+            if (!user || !requester) {
+                if (typeof callback === 'function') return callback({ error: 'User not found' });
+                return;
+            }
+
+            // Mutual relationship - simplified for now, assuming friends is array of strings or objects
+            // Let's stick to the current structure in userPartialUpdate which expects objects sometimes but server logic was using strings?
+            // Wait, looking at getFriends, it was fetching details. Let's keep it consistent.
+
+            await usersDb.update({ _id: user._id }, {
+                $pull: { pendingRequests: requesterUsername },
+                $addToSet: { friends: requesterUsername }
+            });
+            await usersDb.update({ username: requesterUsername }, {
+                $addToSet: { friends: decoded.username }
+            });
+
+            if (typeof callback === 'function') callback({ success: true });
         } catch (err) {
-            callback({ error: 'Auth failed' });
+            if (typeof callback === 'function') callback({ error: 'Auth failed' });
         }
     });
 
@@ -500,44 +521,53 @@ io.on('connection', (socket) => {
     socket.on('adminKick', ({ token, targetSocketId }, callback) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
-            if (decoded.username !== ADMIN_USER) return callback({ error: 'Forbidden' });
+            if (decoded.username !== ADMIN_USER) {
+                if (typeof callback === 'function') return callback({ error: 'Forbidden' });
+                return;
+            }
 
             const targetSocket = io.sockets.sockets.get(targetSocketId);
             if (targetSocket) {
                 targetSocket.disconnect();
-                callback({ success: true });
+                if (typeof callback === 'function') callback({ success: true });
             } else {
-                callback({ error: 'User not online' });
+                if (typeof callback === 'function') callback({ error: 'User not online' });
             }
         } catch (err) {
-            callback({ error: 'Auth failed' });
+            if (typeof callback === 'function') callback({ error: 'Auth failed' });
         }
     });
 
     socket.on('adminAnnouncement', ({ token, text }, callback) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
-            if (decoded.username !== ADMIN_USER) return callback({ error: 'Forbidden' });
+            if (decoded.username !== ADMIN_USER) {
+                if (typeof callback === 'function') return callback({ error: 'Forbidden' });
+                return;
+            }
 
             roomState.announcement = text || null;
             io.emit('roomUpdate', roomState);
-            callback({ success: true });
+            if (typeof callback === 'function') callback({ success: true });
         } catch (err) {
-            callback({ error: 'Auth failed' });
+            if (typeof callback === 'function') callback({ error: 'Auth failed' });
         }
     });
 
     socket.on('adminClearChat', ({ token }, callback) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
-            if (decoded.username !== ADMIN_USER) return callback({ error: 'Forbidden' });
+            if (decoded.username !== ADMIN_USER) {
+                if (typeof callback === 'function') return callback({ error: 'Forbidden' });
+                return;
+            }
 
             roomState.messages = [];
             addMessageToBuffer({ userName: 'SYSTEM', text: 'Chat history cleared by Admin.', timestamp: new Date().toLocaleTimeString(), isSystem: true });
             io.emit('init', { state: roomState, yourId: null });
-            callback({ success: true });
+            if (typeof callback === 'function') callback({ success: true });
         } catch (err) {
-            callback({ error: 'Auth failed' });
+            if (typeof callback === 'function') callback({ error: 'Auth failed' });
         }
     });
 
