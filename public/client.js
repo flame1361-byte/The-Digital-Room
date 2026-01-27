@@ -713,9 +713,9 @@ if (settingsSubmitBtn) {
             return;
         }
 
-        // Warlock Mythic Validation
-        if (nameStyle === 'name-warlock' && !currentUser.hasWarlockStyle && !['mayne', 'kaid'].includes(currentUser.username)) {
-            alert("🔮 THIS STYLE IS RESERVED FOR WARLOCKS. PLEASE VISIT THE MYTHIC SHOP.");
+        // Hell & Bone Mythic Validation
+        if (nameStyle === 'name-hell-bone' && !currentUser.hasHellBoneStyle && !['mayne', 'kaid'].includes(currentUser.username)) {
+            alert("💀 THIS STYLE IS RESERVED FOR HELL & BONE OWNERS. PLEASE VISIT THE MYTHIC SHOP.");
             return;
         }
 
@@ -804,22 +804,22 @@ if (claimPremiumBtn) {
     };
 }
 
-const claimWarlockBtn = document.getElementById('claim-warlock-btn');
+const claimHellBoneBtn = document.getElementById('claim-hell-bone-btn');
 const mythicShop = document.getElementById('mythic-shop');
 
-if (claimWarlockBtn) {
-    claimWarlockBtn.onclick = async () => {
-        const originalText = claimWarlockBtn.textContent;
-        claimWarlockBtn.textContent = 'SUMMONING...';
+if (claimHellBoneBtn) {
+    claimHellBoneBtn.onclick = async () => {
+        const originalText = claimHellBoneBtn.textContent;
+        claimHellBoneBtn.textContent = 'FORGING...';
 
-        socket.emit('unlockWarlock', { token: currentUser.token }, (res) => {
+        socket.emit('unlockHellBone', { token: currentUser.token }, (res) => {
             if (res.success) {
-                currentUser.hasWarlockStyle = true;
+                currentUser.hasHellBoneStyle = true;
                 updatePremiumUI();
-                alert("🔮 WARLOCK STYLE SUMMONED! Dark magic flows through you.");
+                alert("💀 HELL & BONE FORGED! The eternal flame is yours.");
             } else {
-                claimWarlockBtn.textContent = originalText;
-                alert(res.error || "Failed to summon Warlock.");
+                claimHellBoneBtn.textContent = originalText;
+                alert(res.error || "Failed to forge Hell & Bone.");
             }
         });
     };
@@ -830,7 +830,7 @@ function updatePremiumUI() {
 
     const isPremium = currentUser.hasPremiumPack;
     const isCoOwner = currentUser.username === 'kaid';
-    const isWarlock = currentUser.hasWarlockStyle || ['mayne', 'kaid'].includes(currentUser.username);
+    const isWarlock = currentUser.hasHellBoneStyle || ['mayne', 'kaid'].includes(currentUser.username); // Kept var name for internal simplicity or could rename, but logic update is key
 
     premiumShop.style.display = isPremium ? 'none' : 'block';
     if (mythicShop) mythicShop.style.display = isWarlock ? 'none' : 'block';
@@ -863,9 +863,9 @@ function updatePremiumUI() {
             opt.style.display = currentUser.username === 'mummy' ? 'block' : 'none';
         }
 
-        // Mythic [ONE-OF-A-KIND] Warlock
-        if (opt.value === 'name-warlock') {
-            opt.style.display = isWarlock ? 'block' : 'none';
+        // Mythic [ONE-OF-A-KIND] Hell & Bone
+        if (opt.value === 'name-hell-bone') {
+            opt.style.display = isWarlock ? 'block' : 'none'; // Reusing isWarlock boolean for now to avoid breaking scope
         }
     });
 }

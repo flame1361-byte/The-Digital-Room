@@ -1846,46 +1846,48 @@ footer {
     vertical-align: middle;
 }
 
-/* --- [MYTHIC] WARLOCK --- */
-.name-warlock {
+/* --- [MYTHIC] HELL & BONE --- */
+.name-hell-bone {
     font-weight: 900;
     text-transform: uppercase;
-    color: #fff !important;
+    color: #e8e4c9 !important;
+    /* Bone White */
     text-shadow:
-        0 0 5px #a333c8,
-        0 0 10px #a333c8,
-        0 0 15px #32cd32,
-        0 0 20px #32cd32;
-    animation: warlock-glow 2s ease-in-out infinite alternate, warlock-void 3s infinite;
+        0 0 5px #8a0303,
+        0 0 10px #8a0303,
+        0 0 20px #ff0000,
+        0 0 30px #ff0000;
+    animation: hell-bone-flicker 3s infinite alternate;
     letter-spacing: 2px;
     transform: translateZ(0);
-    will-change: transform, text-shadow, filter;
+    will-change: transform, text-shadow;
     backface-visibility: hidden;
 }
 
-@keyframes warlock-glow {
-    from {
-        text-shadow: 0 0 5px #a333c8, 0 0 10px #a333c8, 0 0 15px #32cd32, 0 0 20px #32cd32;
+@keyframes hell-bone-flicker {
+    0% {
+        text-shadow:
+            0 0 4px #8a0303,
+            0 0 10px #8a0303,
+            0 0 18px #ff0000;
         filter: brightness(1);
     }
 
-    to {
-        text-shadow: 0 0 15px #a333c8, 0 0 25px #a333c8, 0 0 35px #32cd32, 0 0 45px #32cd32, 0 0 60px #32cd32;
-        filter: brightness(1.8);
-    }
-}
-
-@keyframes warlock-void {
-
-    0%,
-    100% {
-        transform: translateY(0) scale(1);
-        filter: contrast(1);
-    }
-
     50% {
-        transform: translateY(-1px) scale(1.02);
-        filter: contrast(1.2);
+        text-shadow:
+            0 0 2px #500000,
+            0 0 5px #8a0303,
+            0 0 12px #cc0000;
+        opacity: 0.9;
+        filter: brightness(1.2);
+    }
+
+    100% {
+        text-shadow:
+            0 0 5px #8a0303,
+            0 0 12px #8a0303,
+            0 0 22px #ff0000;
+        filter: brightness(1.5);
     }
 }
 
