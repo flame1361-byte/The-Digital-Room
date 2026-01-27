@@ -733,6 +733,12 @@ if (settingsSubmitBtn) {
             return;
         }
 
+        // Warlock Mythic Validation
+        if (nameStyle === 'name-warlock' && !currentUser.hasWarlockStyle && !['mayne', 'kaid'].includes(currentUser.username)) {
+            alert("🔮 THIS STYLE IS RESERVED FOR WARLOCKS. PLEASE VISIT THE MYTHIC SHOP.");
+            return;
+        }
+
         if (nameStyle === 'name-mummy-exclusive' && currentUser.username !== 'mummy') {
             alert("🚨 THIS STYLE IS RESERVED FOR CO-ADMIN (mummy)!");
             return;
@@ -794,12 +800,15 @@ function updatePremiumUI() {
 
     const isPremium = currentUser.hasPremiumPack;
     const isCoOwner = currentUser.username === 'kaid';
+    const isWarlock = currentUser.hasWarlockStyle || ['mayne', 'kaid'].includes(currentUser.username);
+
     premiumShop.style.display = isPremium ? 'none' : 'block';
+    if (mythicShop) mythicShop.style.display = isWarlock ? 'none' : 'block';
 
     // Manage dropdown options
     const premiumOptions = nameStyleSelect.querySelectorAll('option');
     premiumOptions.forEach(opt => {
-        // Premium Pack styles
+        // ... (existing logic)
         if (['name-gold', 'name-matrix', 'name-ghost', 'name-rainbow-v2', 'name-cherry-blossom'].includes(opt.value)) {
             if (isPremium) {
                 opt.disabled = false;
@@ -822,6 +831,11 @@ function updatePremiumUI() {
         // Exclusive Mummy style
         if (opt.value === 'name-mummy-exclusive') {
             opt.style.display = currentUser.username === 'mummy' ? 'block' : 'none';
+        }
+
+        // Mythic [ONE-OF-A-KIND] Warlock
+        if (opt.value === 'name-warlock') {
+            opt.style.display = isWarlock ? 'block' : 'none';
         }
     });
 }

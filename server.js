@@ -470,6 +470,16 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('unlockWarlock', async ({ token }, callback) => {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            await usersDb.update({ _id: decoded.id }, { $set: { hasWarlockStyle: true } });
+            callback({ success: true });
+        } catch (err) {
+            callback({ error: 'Auth failed' });
+        }
+    });
+
     // --- Social Socket Events ---
     socket.on('getFriends', async ({ token }, callback) => {
         try {
