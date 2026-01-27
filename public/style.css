@@ -1827,3 +1827,75 @@ footer {
     0%, 100% { transform: translateY(0) scale(1); filter: contrast(1); }
     50% { transform: translateY(-1px) scale(1.02); filter: contrast(1.2); }
 }
+
+/* --- AD SYSTEM & MONETIZATION --- */
+.ad-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 10px;
+    background: #000;
+}
+
+.ad-slot {
+    position: relative;
+    border: 2px solid #333;
+    padding: 5px;
+    transition: border-color 0.2s, transform 0.1s;
+    cursor: pointer;
+    background: #111;
+    overflow: hidden;
+}
+
+.ad-slot:hover {
+    border-color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.ad-banner {
+    width: 100%;
+    height: auto;
+    display: block;
+    image-rendering: pixelated;
+}
+
+.ad-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #f00;
+    color: #fff;
+    font-size: 0.5rem;
+    font-weight: bold;
+    padding: 2px 5px;
+    border: 1px solid #fff;
+    z-index: 5;
+    animation: ad-pulse 1s infinite alternate;
+}
+
+@keyframes ad-pulse {
+    from { transform: scale(1); filter: brightness(1); }
+    to { transform: scale(1.1); filter: brightness(1.5); }
+}
+
+.ad-label {
+    text-align: center;
+    font-size: 0.5rem;
+    color: #555;
+    margin-top: 5px;
+    letter-spacing: 1px;
+}
+
+.ad-button-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+    margin-top: 10px;
+}
+
+.ad-button-88x31 {
+    width: 88px;
+    height: 31px;
+    border: 1px solid #444;
+    cursor: pointer;
+}
