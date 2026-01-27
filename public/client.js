@@ -1470,11 +1470,6 @@ if (leaveStreamBtn) leaveStreamBtn.onclick = () => streamManager.leaveStream();
 window.updateStreamUI = (streamInfo, isLocalLeave = false) => {
     requestAnimationFrame(() => {
         const isOwner = (currentUser && (currentUser.username === 'mayne' || currentUser.username === 'kaid' || currentUser.username === 'mummy'));
-        const streamContainer = document.getElementById('stream-controls');
-
-        if (streamContainer) {
-            streamContainer.style.display = isOwner ? 'block' : 'none';
-        }
 
         if (!streamInfo) {
             if (!isLocalLeave) {
