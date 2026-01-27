@@ -303,7 +303,8 @@ io.on('connection', (socket) => {
             const existing = await usersDb.findOne({ username });
             if (existing) {
                 console.warn(`[SOCKET-AUTH] User exists: ${username}`);
-                return callback({ error: 'Username already exists' });
+                if (typeof callback === 'function') return callback({ error: 'Username already exists' });
+                return;
             }
             const hashedPassword = await bcrypt.hash(password, 10);
             await usersDb.insert({
