@@ -2,503 +2,468 @@
 <html lang="en">
 
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TheDigitalRoom // MySpace v2.0</title>
-<link rel="stylesheet" href="style.css">
-<!-- Google Fonts for that retro feel -->
-<link
-href="https://fonts.googleapis.com/css2?family=Courier+Prime&family=VT323&display=swap"
-rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TheDigitalRoom // MySpace v2.0</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts for that retro feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime&family=VT323&display=swap" rel="stylesheet">
 </head>
 
 <body>
-<div id="app-container">
-<!-- Persistent Announcement -->
-<div id="announcement-banner" style="display: none;"></div>
+    <div id="app-container">
+        <!-- Persistent Announcement -->
+        <div id="announcement-banner" style="display: none;"></div>
 
-<header>
-<marquee scrollamount="5">*** WELCOME TO THE DIGITAL ROOM *** LATE NIGHT VIBES ONLY
-*** BECOME THE DJ ***
-</marquee>
-<h1>TheDigitalRoom<span class="version">v0.8.2-beta</span> <span id="conn-status"
-style="font-size: 0.6rem; color: #ff0000;">[OFFLINE]</span></h1>
-<div class="welcome-banner-colors">WELCOME TO THE DIGITAL ROOM IN COLORS</div>
-<div style="text-align: center; margin: 10px 0;">
-<a href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=flame1361@gmail.com&item_name=TheDigitalRoom+Support&amount=1.00&currency_code=USD"
-target="_blank" class="donate-button-animated">DONATE & SUPPORT THE ROOM</a>
-</div>
-<div id="auth-nav">
-<span id="guest-pfp-preview"></span>
-<span id="user-display">Welcome, Guest</span>
-<button id="login-nav-btn">LOGIN</button>
-<button id="logout-nav-btn" style="display: none;">LOGOUT</button>
-</div>
-</header>
+        <header>
+            <marquee scrollamount="5">*** WELCOME TO THE DIGITAL ROOM *** LATE NIGHT VIBES ONLY
+                *** BECOME THE DJ ***
+            </marquee>
+            <h1>TheDigitalRoom<span class="version">v0.8.2-beta</span> <span id="conn-status"
+                    style="font-size: 0.6rem; color: #ff0000;">[OFFLINE]</span></h1>
+            <div class="welcome-banner-colors">WELCOME TO THE DIGITAL ROOM IN COLORS</div>
+            <div style="text-align: center; margin: 10px 0;">
+                <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=flame1361@gmail.com&item_name=TheDigitalRoom+Support&amount=1.00&currency_code=USD"
+                    target="_blank" class="donate-button-animated">DONATE & SUPPORT THE ROOM</a>
+            </div>
+            <div id="auth-nav">
+                <span id="guest-pfp-preview"></span>
+                <span id="user-display">Welcome, Guest</span>
+                <button id="login-nav-btn">LOGIN</button>
+                <button id="logout-nav-btn" style="display: none;">LOGOUT</button>
+            </div>
+        </header>
 
-<main>
-<!-- Sidebar: User List -->
-<aside id="user-list">
-<div class="box-header">ONLINE FRIENDS</div>
-<div id="user-actions"
-style="padding: 10px; border-bottom: 1px solid var(--border-color);">
-<button id="change-name-btn" style="width: 100%; font-size: 0.8rem;">MY
-PROFILE</button>
-</div>
+        <main>
+            <!-- Sidebar: User List -->
+            <aside id="user-list">
+                <div class="box-header">ONLINE FRIENDS</div>
+                <div id="user-actions" style="padding: 10px; border-bottom: 1px solid var(--border-color);">
+                    <button id="change-name-btn" style="width: 100%; font-size: 0.8rem;">MY
+                        PROFILE</button>
+                </div>
 
-<!-- Top Friends Grid -->
-<div class="box-header"
-style="background: linear-gradient(90deg, #ff00ff, #00ffff); color: #000;">
-TOP
-FRIENDS</div>
-<div id="top-friends-grid"
-style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 5px; border-bottom: 1px solid var(--border-color);">
-<!-- Friends injected here -->
-<div
-style="grid-column: span 3; text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">
-ADD FRIENDS IN SETTINGS</div>
-</div>
+                <!-- Top Friends Grid -->
+                <div class="box-header" style="background: linear-gradient(90deg, #ff00ff, #00ffff); color: #000;">
+                    TOP
+                    FRIENDS</div>
+                <div id="top-friends-grid"
+                    style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 5px; border-bottom: 1px solid var(--border-color);">
+                    <!-- Friends injected here -->
+                    <div
+                        style="grid-column: span 3; text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">
+                        ADD FRIENDS IN SETTINGS</div>
+                </div>
 
-<div id="users-container">
-<!-- Users injected here -->
-</div>
+                <div id="users-container">
+                    <!-- Users injected here -->
+                </div>
 
-<!-- Voice Channel System -->
-<div class="box-header"
-style="margin-top: 10px; background: linear-gradient(90deg, #00ff00, #008800); color: #fff;">
-VOICE
-CHANNEL</div>
-<div id="voice-channel-controls"
-style="padding: 10px; border-bottom: 1px solid var(--border-color); display: flex; gap: 5px;">
-<button id="voice-join-btn"
-style="flex: 1; font-size: 0.7rem;">JOIN</button>
-<button id="voice-leave-btn"
-style="flex: 1; font-size: 0.7rem; display: none;">LEAVE</button>
-</div>
-<div id="voice-controls-extra"
-style="padding: 5px; display: none; flex-direction: column; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-color);">
-<div style="display: flex; gap: 10px; justify-content: center;">
-<button id="voice-mute-btn" title="Mute Microphone"
-style="background: none; border: 1px solid var(--accent-color); color: var(--accent-color); padding: 2px 8px; font-size: 0.8rem;">🎤</button>
-<button id="voice-deafen-btn" title="Deafen Audio"
-style="background: none; border: 1px solid var(--accent-color); color: var(--accent-color); padding: 2px 8px; font-size: 0.8rem;">🎧</button>
-</div>
-<select id="voice-input-select"
-style="width: 90%; background: #000; color: var(--accent-color); border: 1px solid var(--accent-color); font-size: 0.6rem; padding: 2px; font-family: inherit;">
-<option value="">LOADING DEVICES...</option>
-</select>
-</div>
-<div id="voice-users-container" style="padding: 5px;">
-<!-- Voice participants injected here -->
-<div
-style="text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">
-CHANNEL EMPTY</div>
-</div>
-</aside>
+                <!-- Voice Channel System -->
+                <div class="box-header"
+                    style="margin-top: 10px; background: linear-gradient(90deg, #00ff00, #008800); color: #fff;">
+                    VOICE
+                    CHANNEL</div>
+                <div id="voice-channel-controls"
+                    style="padding: 10px; border-bottom: 1px solid var(--border-color); display: flex; gap: 5px;">
+                    <button id="voice-join-btn" style="flex: 1; font-size: 0.7rem;">JOIN</button>
+                    <button id="voice-leave-btn" style="flex: 1; font-size: 0.7rem; display: none;">LEAVE</button>
+                </div>
+                <div id="voice-controls-extra"
+                    style="padding: 5px; display: none; flex-direction: column; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-color);">
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button id="voice-mute-btn" title="Mute Microphone"
+                            style="background: none; border: 1px solid var(--accent-color); color: var(--accent-color); padding: 2px 8px; font-size: 0.8rem;">🎤</button>
+                        <button id="voice-deafen-btn" title="Deafen Audio"
+                            style="background: none; border: 1px solid var(--accent-color); color: var(--accent-color); padding: 2px 8px; font-size: 0.8rem;">🎧</button>
+                    </div>
+                    <select id="voice-input-select"
+                        style="width: 90%; background: #000; color: var(--accent-color); border: 1px solid var(--accent-color); font-size: 0.6rem; padding: 2px; font-family: inherit;">
+                        <option value="">LOADING DEVICES...</option>
+                    </select>
+                </div>
+                <div id="voice-users-container" style="padding: 5px;">
+                    <!-- Voice participants injected here -->
+                    <div style="text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">
+                        CHANNEL EMPTY</div>
+                </div>
+            </aside>
 
-<!-- Main Panel: Player and Chat -->
-<section id="center-panel">
-<div id="dj-booth">
-<div class="box-header">SOUNDCLOUD DJ BOOTH</div>
-<div id="player-container">
-<iframe id="sc-widget" width="100%" height="166" scrolling="no"
-frameborder="no" allow="autoplay"
-src="https://w.soundcloud.com/player/?url="></iframe>
-</div>
+            <!-- Main Panel: Player and Chat -->
+            <section id="center-panel">
+                <div id="dj-booth">
+                    <div class="box-header">SOUNDCLOUD DJ BOOTH</div>
+                    <div id="player-container">
+                        <iframe id="sc-widget" width="100%" height="166" scrolling="no" frameborder="no"
+                            allow="autoplay" src="https://w.soundcloud.com/player/?url="></iframe>
+                    </div>
 
-<div id="volume-area">
-<div class="knob-container">
-<div id="volume-knob">
-<div class="knob-indicator"></div>
-</div>
-</div>
-<div class="knob-label-area">
-<span class="knob-label">MASTER GAIN</span>
-<div id="volume-pct">100%</div>
-</div>
-</div>
+                    <div id="volume-area">
+                        <div class="knob-container">
+                            <div id="volume-knob">
+                                <div class="knob-indicator"></div>
+                            </div>
+                        </div>
+                        <div class="knob-label-area">
+                            <span class="knob-label">MASTER GAIN</span>
+                            <div id="volume-pct">100%</div>
+                        </div>
+                    </div>
 
-<div id="dj-controls">
-<button id="claim-dj-btn">TAKE CONTROL [BECOME DJ]</button>
-<div id="dj-status">NO DJ CONNECTED</div>
-</div>
+                    <div id="dj-controls">
+                        <button id="claim-dj-btn">TAKE CONTROL [BECOME DJ]</button>
+                        <div id="dj-status">NO DJ CONNECTED</div>
+                    </div>
 
-<div id="dj-toolset" style="display: none;">
-<input type="text" id="track-url-input"
-placeholder="PASTE SOUNDCLOUD URL HERE..." />
-<button id="load-track-btn">LOAD TRACK</button>
-</div>
-</div>
+                    <div id="dj-toolset" style="display: none;">
+                        <input type="text" id="track-url-input" placeholder="PASTE SOUNDCLOUD URL HERE..." />
+                        <button id="load-track-btn">LOAD TRACK</button>
+                    </div>
+                </div>
 
 
-<div id="chat-system">
-<div class="box-header" id="chat-header">COMMUNITY CHAT</div>
-<div id="chat-messages">
-<div class="msg system">Welcome to TheDigitalRoom. Please be respectful
-of the vibe.</div>
-</div>
-<div id="chat-input-area">
-<input type="text" id="chat-input"
-placeholder="Type a message... (HTML supported? maybe...)" />
-<button id="send-btn">SEND!!</button>
-</div>
-</div>
-</section>
+                <div id="chat-system">
+                    <div class="box-header" id="chat-header">COMMUNITY CHAT</div>
+                    <div id="chat-messages">
+                        <div class="msg system">Welcome to TheDigitalRoom. Please be respectful
+                            of the vibe.</div>
+                    </div>
+                    <div id="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="Type a message... (HTML supported? maybe...)" />
+                        <button id="send-btn">SEND!!</button>
+                    </div>
+                </div>
+            </section>
 
-<!-- Right Sidebar: Custom Box/Profile style -->
-<aside id="profile-box">
-<div class="box-header">ROOM RULES</div>
-<div class="inner-box">
-<ul>
-<li>Must love 256kbps audio.</li>
-<li>No trolling in the marquee.</li>
-<li>CSS Overrides are encouraged.</li>
-</ul>
-</div>
+            <!-- Right Sidebar: Custom Box/Profile style -->
+            <aside id="profile-box">
 
-<div class="box-header">ROOM INFO / MEDIA</div>
+                <div class="box-header">ROOM INFO / MEDIA</div>
 
-<div class="inner-box" style="padding: 0;">
-<div class="ad-grid">
-<!-- Featured Ad -->
-<div class="ad-slot"
-onclick="window.open('https://the-digital-room.onrender.com/', '_blank')">
-<div class="ad-badge">FEATURED</div>
-<img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif"
-class="ad-banner" alt="Ad">
-<div
-style="font-size: 0.6rem; color: var(--accent-color); margin-top: 5px; text-align: center;">
-NEW MYSpace 2.0 THEMES OUT NOW</div>
-</div>
+                <div class="inner-box" style="padding: 0;">
+                    <div class="ad-grid">
+                        <!-- Featured Ad -->
+                        <div class="ad-slot" onclick="window.open('https://the-digital-room.onrender.com/', '_blank')">
+                            <div class="ad-badge">FEATURED</div>
+                            <img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif"
+                                class="ad-banner" alt="Ad">
+                            <div
+                                style="font-size: 0.6rem; color: var(--accent-color); margin-top: 5px; text-align: center;">
+                                NEW MYSpace 2.0 THEMES OUT NOW</div>
+                        </div>
 
-<!-- Hot Deal -->
-<div class="ad-slot" style="background: #222;"
-onclick="window.open('https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=flame1361@gmail.com&item_name=TheDigitalRoom+Support&amount=1.00&currency_code=USD', '_blank')">
-<div class="ad-badge" style="background: #ff00ff;">HOT!</div>
-<div
-style="font-size: 0.7rem; font-weight: bold; color: #ffd700; text-align: center; padding: 10px;">
-SUPPORT THE SERVER<br><span
-style="font-size: 0.5rem; color: #fff;">CLICK TO TIP
-($1)</span></div>
-</div>
+                        <!-- Hot Deal -->
+                        <div class="ad-slot" style="background: #222;"
+                            onclick="window.open('https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=flame1361@gmail.com&item_name=TheDigitalRoom+Support&amount=1.00&currency_code=USD', '_blank')">
+                            <div class="ad-badge" style="background: #ff00ff;">HOT!</div>
+                            <div
+                                style="font-size: 0.7rem; font-weight: bold; color: #ffd700; text-align: center; padding: 10px;">
+                                SUPPORT THE SERVER<br><span style="font-size: 0.5rem; color: #fff;">CLICK TO TIP
+                                    ($1)</span></div>
+                        </div>
 
-<!-- 88x31 Button Row -->
-<div class="ad-button-grid">
-<div class="ad-button-88x31"
-style="background: #333; display: flex; align-items: center; justify-content: center; font-size: 0.4rem; color: #777;">
-AFFILIATE SLOT</div>
-<div class="ad-button-88x31"
-style="background: #333; display: flex; align-items: center; justify-content: center; font-size: 0.4rem; color: #777;">
-YOUR AD HERE</div>
-</div>
+                        <!-- 88x31 Button Row -->
+                        <div class="ad-button-grid">
+                            <div class="ad-button-88x31"
+                                style="background: #333; display: flex; align-items: center; justify-content: center; font-size: 0.4rem; color: #777;">
+                                AFFILIATE SLOT</div>
+                            <div class="ad-button-88x31"
+                                style="background: #333; display: flex; align-items: center; justify-content: center; font-size: 0.4rem; color: #777;">
+                                YOUR AD HERE</div>
+                        </div>
 
-<div class="ad-label">--- SPONSORED CONTENT ---</div>
-</div>
-</div>
-</aside>
-</main>
+                        <div class="ad-label">--- SPONSORED CONTENT ---</div>
+                    </div>
+                </div>
+            </aside>
+        </main>
 
-<footer>
-<div id="ticker">
-CURRENT TRACK: <span id="current-track-name">Loading...</span> | DJ: <span
-id="current-dj-name">None</span>
-</div>
-</footer>
-</div>
+        <footer>
+            <div id="ticker">
+                CURRENT TRACK: <span id="current-track-name">Loading...</span> | DJ: <span
+                    id="current-dj-name">None</span>
+            </div>
+        </footer>
+    </div>
 
-<!-- Auth Modals -->
-<div id="modal-overlay" style="display: none;">
-<!-- Login Modal -->
-<div id="login-modal" class="retro-modal" style="display: none;">
-<div class="box-header">MEMBER LOGIN</div>
-<div class="modal-body">
-<input type="text" id="login-user" placeholder="USERNAME" />
-<input type="password" id="login-pass" placeholder="PASSWORD" />
-<div class="modal-footer">
-<button id="login-submit">ENTER</button>
-<button id="show-register">NOT A MEMBER?</button>
-<!-- <button class="close-modal">CANCEL</button> -->
-</div>
-</div>
-</div>
+    <!-- Auth Modals -->
+    <div id="modal-overlay" style="display: none;">
+        <!-- Login Modal -->
+        <div id="login-modal" class="retro-modal" style="display: none;">
+            <div class="box-header">MEMBER LOGIN</div>
+            <div class="modal-body">
+                <input type="text" id="login-user" placeholder="USERNAME" />
+                <input type="password" id="login-pass" placeholder="PASSWORD" />
+                <div class="modal-footer">
+                    <button id="login-submit">ENTER</button>
+                    <button id="show-register">NOT A MEMBER?</button>
+                    <!-- <button class="close-modal">CANCEL</button> -->
+                </div>
+            </div>
+        </div>
 
-<!-- Register Modal -->
-<div id="register-modal" class="retro-modal" style="display: none;">
-<div class="box-header">JOIN THE CLUB</div>
-<div class="modal-body">
-<input type="text" id="reg-user" placeholder="PICK A USERNAME" />
-<input type="password" id="reg-pass" placeholder="CHOOSE PASSWORD" />
-<div class="modal-footer">
-<button id="reg-submit">REGISTER</button>
-<button class="close-modal">BACK</button>
-</div>
-</div>
-</div>
+        <!-- Register Modal -->
+        <div id="register-modal" class="retro-modal" style="display: none;">
+            <div class="box-header">JOIN THE CLUB</div>
+            <div class="modal-body">
+                <input type="text" id="reg-user" placeholder="PICK A USERNAME" />
+                <input type="password" id="reg-pass" placeholder="CHOOSE PASSWORD" />
+                <div class="modal-footer">
+                    <button id="reg-submit">REGISTER</button>
+                    <button class="close-modal">BACK</button>
+                </div>
+            </div>
+        </div>
 
-<!-- Settings Modal -->
-<div id="settings-modal" class="retro-modal" style="display: none; width: 400px;">
-<div class="box-header">ACCOUNT SETTINGS & SOCIAL</div>
-<div class="modal-body" style="padding-bottom: 0;">
-<div class="tabs">
-<button id="tab-profile-btn" class="tab-btn active"
-style="flex: 1;">PROFILE</button>
-<button id="tab-themes-btn" class="tab-btn" style="flex: 1;">THEMES</button>
-<button id="tab-social-btn" class="tab-btn" style="flex: 1;">SOCIAL</button>
-<button id="tab-admin-btn" class="tab-btn"
-style="flex: 1; display: none;">ADMIN</button>
-</div>
-</div>
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="retro-modal" style="display: none; width: 400px;">
+            <div class="box-header">ACCOUNT SETTINGS & SOCIAL</div>
+            <div class="modal-body" style="padding-bottom: 0;">
+                <div class="tabs">
+                    <button id="tab-profile-btn" class="tab-btn active" style="flex: 1;">PROFILE</button>
+                    <button id="tab-themes-btn" class="tab-btn" style="flex: 1;">THEMES</button>
+                    <button id="tab-social-btn" class="tab-btn" style="flex: 1;">SOCIAL</button>
+                    <button id="tab-admin-btn" class="tab-btn" style="flex: 1; display: none;">ADMIN</button>
+                </div>
+            </div>
 
-<div class="dashboard-body"
-style="border: 1px solid var(--border-color); margin: 0 20px 20px 20px; padding: 15px; background: rgba(0,0,0,0.2);">
+            <div class="dashboard-body"
+                style="border: 1px solid var(--border-color); margin: 0 20px 20px 20px; padding: 15px; background: rgba(0,0,0,0.2);">
 
-<!-- Profile Tab -->
-<div id="tab-profile">
-<div class="settings-group">
-<div class="group-label">IDENTITY & STYLE</div>
-<label>AVATAR UPLOAD:</label>
-<input type="file" id="settings-pfp-file" accept="image/*" />
-<label style="margin-top: 10px; display: block;">NAME STYLE:</label>
-<select id="settings-name-style"
-style="background: #000; color: var(--text-color); border: 1px solid var(--text-color); padding: 5px; font-family: inherit; width: 100%;">
-<option value="">[COMMON] DEFAULT WHITE</option>
+                <!-- Profile Tab -->
+                <div id="tab-profile">
+                    <div class="settings-group">
+                        <div class="group-label">IDENTITY & STYLE</div>
+                        <label>AVATAR UPLOAD:</label>
+                        <input type="file" id="settings-pfp-file" accept="image/*" />
+                        <label style="margin-top: 10px; display: block;">NAME STYLE:</label>
+                        <select id="settings-name-style"
+                            style="background: #000; color: var(--text-color); border: 1px solid var(--text-color); padding: 5px; font-family: inherit; width: 100%;">
+                            <option value="">[COMMON] DEFAULT WHITE</option>
 
-<optgroup label="--- UNCOMMON ---">
-<option value="name-rainbow">[UNCOMMON] RAINBOW CYCLE</option>
-<option value="name-glitch">[UNCOMMON] DIGITAL GLITCH</option>
-<option value="name-neon">[UNCOMMON] NEON PULSE</option>
-<option value="name-fire">[UNCOMMON] FIRE FLICKER</option>
-</optgroup>
+                            <optgroup label="--- UNCOMMON ---">
+                                <option value="name-rainbow">[UNCOMMON] RAINBOW CYCLE</option>
+                                <option value="name-glitch">[UNCOMMON] DIGITAL GLITCH</option>
+                                <option value="name-neon">[UNCOMMON] NEON PULSE</option>
+                                <option value="name-fire">[UNCOMMON] FIRE FLICKER</option>
+                            </optgroup>
 
-<optgroup label="--- RARE (PREMIUM) ---">
-<option value="name-gold">[RARE] GOLD SPARKLE</option>
-<option value="name-ghost">[RARE] GHOSTLY</option>
-</optgroup>
+                            <optgroup label="--- RARE (PREMIUM) ---">
+                                <option value="name-gold">[RARE] GOLD SPARKLE</option>
+                                <option value="name-ghost">[RARE] GHOSTLY</option>
+                            </optgroup>
 
-<optgroup label="--- EPIC (PREMIUM) ---">
-<option value="name-matrix">[EPIC] MATRIX RAIN</option>
-<option value="name-rainbow-v2">[EPIC] RAINBOW DELUXE</option>
-<option value="name-cherry-blossom">[EPIC] CHERRY BLOSSOM
-</option>
-</optgroup>
+                            <optgroup label="--- EPIC (PREMIUM) ---">
+                                <option value="name-matrix">[EPIC] MATRIX RAIN</option>
+                                <option value="name-rainbow-v2">[EPIC] RAINBOW DELUXE</option>
+                                <option value="name-cherry-blossom">[EPIC] CHERRY BLOSSOM
+                                </option>
+                            </optgroup>
 
-<optgroup label="--- LEGENDARY (EXCLUSIVE) ---">
-<option value="name-co-owner-luck" id="opt-co-owner-luck"
-style="display: none;">
-[LEGENDARY] CO-OWNER'S LUCK</option>
-<option value="name-mummy-exclusive" id="opt-mummy-exclusive"
-style="display: none;">
-[LEGENDARY] THE MUMMY</option>
-<option value="name-demon-eyes" id="opt-demon-eyes"
-style="display: none;">[LEGENDARY]
-DEMON'S EYES</option>
-</optgroup>
+                            <optgroup label="--- LEGENDARY (EXCLUSIVE) ---">
+                                <option value="name-co-owner-luck" id="opt-co-owner-luck" style="display: none;">
+                                    [LEGENDARY] CO-OWNER'S LUCK</option>
+                                <option value="name-mummy-exclusive" id="opt-mummy-exclusive" style="display: none;">
+                                    [LEGENDARY] THE MUMMY</option>
+                                <option value="name-demon-eyes" id="opt-demon-eyes" style="display: none;">[LEGENDARY]
+                                    DEMON'S EYES</option>
+                            </optgroup>
 
-<optgroup label="--- MYTHIC (ONE-OF-A-KIND) ---">
-<option value="name-warlock" id="opt-warlock"
-style="display: none;">[MYTHIC] WARLOCK
-</option>
-</optgroup>
-</select>
-<label style="margin-top: 10px; display: block;">PERSONAL
-STATUS:</label>
-<input type="text" id="settings-status" maxlength="40"
-placeholder="WHAT'S ON YOUR MIND?"
-style="width: 100%; box-sizing: border-box; background: #000; color: #fff; border: 1px solid var(--border-color); padding: 5px; font-family: inherit;" />
-</div>
+                            <optgroup label="--- MYTHIC (ONE-OF-A-KIND) ---">
+                                <option value="name-warlock" id="opt-warlock" style="display: none;">[MYTHIC] WARLOCK
+                                </option>
+                            </optgroup>
+                        </select>
+                        <label style="margin-top: 10px; display: block;">PERSONAL
+                            STATUS:</label>
+                        <input type="text" id="settings-status" maxlength="40" placeholder="WHAT'S ON YOUR MIND?"
+                            style="width: 100%; box-sizing: border-box; background: #000; color: #fff; border: 1px solid var(--border-color); padding: 5px; font-family: inherit;" />
+                    </div>
 
-<div id="premium-shop" class="settings-group"
-style="text-align: center; border-style: dashed; border-color: var(--accent-color);">
-<div class="group-label">UPGRADES</div>
-<div style="font-size: 0.7rem; color: #ffd700; margin-bottom: 8px;">👑
-UNLOCK PREMIUM STYLE PACK
-</div>
-<a id="paypal-link"
-href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=flame1361@gmail.com&item_name=TheDigitalRoom+Premium+Styles&amount=0.99&currency_code=USD"
-target="_blank"
-style="display: block; background: #0070ba; color: white; text-decoration: none; padding: 8px; font-size: 0.8rem; font-weight: bold; border-radius: 4px; border: 1px solid white;">BUY
-($0.99)</a>
-<button id="claim-premium-btn"
-style="width: 100%; margin-top: 8px; font-size: 0.5rem; background: transparent; border: 1px solid #444;">ALREADY
-PAID? SYNC STATUS</button>
-</div>
+                    <div id="premium-shop" class="settings-group"
+                        style="text-align: center; border-style: dashed; border-color: var(--accent-color);">
+                        <div class="group-label">UPGRADES</div>
+                        <div style="font-size: 0.7rem; color: #ffd700; margin-bottom: 8px;">👑
+                            UNLOCK PREMIUM STYLE PACK
+                        </div>
+                        <a id="paypal-link"
+                            href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=flame1361@gmail.com&item_name=TheDigitalRoom+Premium+Styles&amount=0.99&currency_code=USD"
+                            target="_blank"
+                            style="display: block; background: #0070ba; color: white; text-decoration: none; padding: 8px; font-size: 0.8rem; font-weight: bold; border-radius: 4px; border: 1px solid white;">BUY
+                            ($0.99)</a>
+                        <button id="claim-premium-btn"
+                            style="width: 100%; margin-top: 8px; font-size: 0.5rem; background: transparent; border: 1px solid #444;">ALREADY
+                            PAID? SYNC STATUS</button>
+                    </div>
 
-<div id="mythic-shop" class="settings-group"
-style="text-align: center; border: 2px solid #a333c8; background: rgba(163, 51, 200, 0.1);">
-<div class="group-label" style="color: #a333c8;">MYTHIC SHOP</div>
-<div style="font-size: 0.7rem; color: #32cd32; margin-bottom: 8px;">🔮
-UNLOCK MYTHIC: WARLOCK
-</div>
-<a id="paypal-link-warlock"
-href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=flame1361@gmail.com&item_name=TheDigitalRoom+Mythic+Warlock&amount=4.99&currency_code=USD"
-target="_blank"
-style="display: block; background: #a333c8; color: white; text-decoration: none; padding: 8px; font-size: 0.8rem; font-weight: bold; border-radius: 4px; border: 1px solid #32cd32;">SUMMON
-WARLOCK
-($4.99)</a>
-<button id="claim-warlock-btn"
-style="width: 100%; margin-top: 8px; font-size: 0.5rem; background: transparent; border: 1px solid #a333c8; color: #a333c8;">ALREADY
-PAID? CLAIM STYLE</button>
-</div>
+                    <div id="mythic-shop" class="settings-group"
+                        style="text-align: center; border: 2px solid #a333c8; background: rgba(163, 51, 200, 0.1);">
+                        <div class="group-label" style="color: #a333c8;">MYTHIC SHOP</div>
+                        <div style="font-size: 0.7rem; color: #32cd32; margin-bottom: 8px;">🔮
+                            UNLOCK MYTHIC: WARLOCK
+                        </div>
+                        <a id="paypal-link-warlock"
+                            href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=flame1361@gmail.com&item_name=TheDigitalRoom+Mythic+Warlock&amount=4.99&currency_code=USD"
+                            target="_blank"
+                            style="display: block; background: #a333c8; color: white; text-decoration: none; padding: 8px; font-size: 0.8rem; font-weight: bold; border-radius: 4px; border: 1px solid #32cd32;">SUMMON
+                            WARLOCK
+                            ($4.99)</a>
+                        <button id="claim-warlock-btn"
+                            style="width: 100%; margin-top: 8px; font-size: 0.5rem; background: transparent; border: 1px solid #a333c8; color: #a333c8;">ALREADY
+                            PAID? CLAIM STYLE</button>
+                    </div>
 
-<div class="settings-group">
-<div class="group-label">SECURITY</div>
-<label>UPDATE PASSWORD:</label>
-<input type="password" id="settings-pass"
-placeholder="LEAVE BLANK TO KEEP" style="width: 100%;" />
-</div>
-</div>
+                    <div class="settings-group">
+                        <div class="group-label">SECURITY</div>
+                        <label>UPDATE PASSWORD:</label>
+                        <input type="password" id="settings-pass" placeholder="LEAVE BLANK TO KEEP"
+                            style="width: 100%;" />
+                    </div>
+                </div>
 
-<!-- Themes Tab -->
-<div id="tab-themes" style="display: none;">
+                <!-- Themes Tab -->
+                <div id="tab-themes" style="display: none;">
 
-<div class="settings-group">
-<div class="group-label">PRESET COLLECTIONS</div>
-<div id="themes-grid-modal">
-<!-- Cards injected via JS -->
-</div>
-</div>
-</div>
+                    <div class="settings-group">
+                        <div class="group-label">PRESET COLLECTIONS</div>
+                        <div id="themes-grid-modal">
+                            <!-- Cards injected via JS -->
+                        </div>
+                    </div>
+                </div>
 
-<!-- Social Tab -->
-<div id="tab-social" style="display: none;">
-<div class="settings-group">
-<div class="group-label">ADD CONNECTION</div>
-<div style="display: flex; gap: 5px;">
-<input type="text" id="friend-username-input"
-placeholder="USERNAME..." style="flex-grow: 1;" />
-<button id="send-friend-request-btn">ADD</button>
-</div>
-</div>
+                <!-- Social Tab -->
+                <div id="tab-social" style="display: none;">
+                    <div class="settings-group">
+                        <div class="group-label">ADD CONNECTION</div>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="text" id="friend-username-input" placeholder="USERNAME..."
+                                style="flex-grow: 1;" />
+                            <button id="send-friend-request-btn">ADD</button>
+                        </div>
+                    </div>
 
-<div class="settings-group">
-<div class="group-label">PENDING REQUESTS</div>
-<div id="pending-requests-list"
-style="max-height: 80px; overflow-y: scroll; font-size: 0.7rem;">
-<!-- Requests mapped here -->
-</div>
-</div>
+                    <div class="settings-group">
+                        <div class="group-label">PENDING REQUESTS</div>
+                        <div id="pending-requests-list"
+                            style="max-height: 80px; overflow-y: scroll; font-size: 0.7rem;">
+                            <!-- Requests mapped here -->
+                        </div>
+                    </div>
 
-<div class="settings-group">
-<div class="group-label">RELATIONSHIPS</div>
-<div id="friends-list-modal"
-style="max-height: 120px; overflow-y: scroll; font-size: 0.7rem;">
-<!-- Friends mapped here -->
-</div>
-</div>
-</div>
+                    <div class="settings-group">
+                        <div class="group-label">RELATIONSHIPS</div>
+                        <div id="friends-list-modal" style="max-height: 120px; overflow-y: scroll; font-size: 0.7rem;">
+                            <!-- Friends mapped here -->
+                        </div>
+                    </div>
+                </div>
 
-<!-- Admin Tab -->
-<div id="tab-admin" style="display: none;">
-<div class="admin-container">
-<div class="admin-command-grid">
-<!-- Section: Broadcast -->
-<div class="settings-group" style="border-color: #0f0;">
-<div class="group-label">BROADCAST</div>
-<input type="text" id="admin-ann-input"
-class="admin-input-terminal"
-placeholder="EMIT SIGNAL TO WORLD..." />
-<div style="display: flex; gap: 5px;">
-<button id="admin-ann-set-btn"
-class="admin-btn admin-btn-set">ACTIVATE</button>
-<button id="admin-ann-clear-btn"
-class="admin-btn admin-btn-secondary">TERMINATE</button>
-</div>
-</div>
+                <!-- Admin Tab -->
+                <div id="tab-admin" style="display: none;">
+                    <div class="admin-container">
+                        <div class="admin-command-grid">
+                            <!-- Section: Broadcast -->
+                            <div class="settings-group" style="border-color: #0f0;">
+                                <div class="group-label">BROADCAST</div>
+                                <input type="text" id="admin-ann-input" class="admin-input-terminal"
+                                    placeholder="EMIT SIGNAL TO WORLD..." />
+                                <div style="display: flex; gap: 5px;">
+                                    <button id="admin-ann-set-btn" class="admin-btn admin-btn-set">ACTIVATE</button>
+                                    <button id="admin-ann-clear-btn"
+                                        class="admin-btn admin-btn-secondary">TERMINATE</button>
+                                </div>
+                            </div>
 
-<!-- Section: Room Control -->
-<div class="settings-group" style="border-color: #0f0;">
-<div class="group-label">ROOM CONTROL</div>
-<div style="display: flex; gap: 5px;">
-<button id="admin-clear-chat-btn"
-class="admin-btn admin-btn-danger" style="flex: 1;">NUKE
-CHAT</button>
-<button id="admin-reset-dj-btn"
-class="admin-btn admin-btn-secondary"
-style="flex: 1;">RESET DJ</button>
-</div>
-</div>
+                            <!-- Section: Room Control -->
+                            <div class="settings-group" style="border-color: #0f0;">
+                                <div class="group-label">ROOM CONTROL</div>
+                                <div style="display: flex; gap: 5px;">
+                                    <button id="admin-clear-chat-btn" class="admin-btn admin-btn-danger"
+                                        style="flex: 1;">NUKE
+                                        CHAT</button>
+                                    <button id="admin-reset-dj-btn" class="admin-btn admin-btn-secondary"
+                                        style="flex: 1;">RESET DJ</button>
+                                </div>
+                            </div>
 
-<!-- Section: Client Oversight -->
-<div class="settings-group" style="border-color: #222;">
-<div class="group-label">USER OVERSIGHT</div>
-<div id="admin-user-list" class="admin-oversight-list">
-<!-- Dynamic Client Items -->
-</div>
-</div>
-</div>
-</div>
-</div>
+                            <!-- Section: Client Oversight -->
+                            <div class="settings-group" style="border-color: #222;">
+                                <div class="group-label">USER OVERSIGHT</div>
+                                <div id="admin-user-list" class="admin-oversight-list">
+                                    <!-- Dynamic Client Items -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-<div class="modal-footer" style="padding-top: 5px;">
-<button id="settings-submit"
-style="background: var(--accent-color); color: #000; border: 1px solid #fff; font-weight: bold;">SAVE
-ALL CHANGES</button>
-<button class="close-modal">CLOSE</button>
-</div>
-</div>
-</div>
-</div>
+                <div class="modal-footer" style="padding-top: 5px;">
+                    <button id="settings-submit"
+                        style="background: var(--accent-color); color: #000; border: 1px solid #fff; font-weight: bold;">SAVE
+                        ALL CHANGES</button>
+                    <button class="close-modal">CLOSE</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<!-- SVG Filters for Ultra Effects -->
-<svg style="position: absolute; width: 0; height: 0;" aria-hidden="true" focusable="false">
-<defs>
-<filter id="liquid-gold">
-<feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3"
-result="noise" />
-<feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R"
-yChannelSelector="G" />
-</filter>
-<filter id="spectral-distortion">
-<feTurbulence type="turbulence" baseFrequency="0.01" numOctaves="2"
-result="turb" />
-<feDisplacementMap in="SourceGraphic" in2="turb" scale="10" />
-</filter>
-</defs>
-</svg>
+    <!-- SVG Filters for Ultra Effects -->
+    <svg style="position: absolute; width: 0; height: 0;" aria-hidden="true" focusable="false">
+        <defs>
+            <filter id="liquid-gold">
+                <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+            <filter id="spectral-distortion">
+                <feTurbulence type="turbulence" baseFrequency="0.01" numOctaves="2" result="turb" />
+                <feDisplacementMap in="SourceGraphic" in2="turb" scale="10" />
+            </filter>
+        </defs>
+    </svg>
 
-<!-- TheChatBox: Direct Messaging UI -->
-<div id="the-chatbox-trigger" title="Open TheChatBox">
-<span class="chatbox-badge" id="chatbox-global-badge" style="display: none;">0</span>
-💬
-</div>
+    <!-- TheChatBox: Direct Messaging UI -->
+    <div id="the-chatbox-trigger" title="Open TheChatBox">
+        <span class="chatbox-badge" id="chatbox-global-badge" style="display: none;">0</span>
+        💬
+    </div>
 
-<div id="the-chatbox" style="display: none;">
-<div class="box-header" id="chatbox-header">
-<span>THE CHATBOX // PRIVATE</span>
-<button id="chatbox-close">X</button>
-</div>
-<div id="chatbox-main">
-<!-- Left Pane: Conversations -->
-<div id="chatbox-contacts">
-<div class="chatbox-sub-header">CONTACTS</div>
-<div id="chatbox-contacts-list">
-<!-- Conversations injected here -->
-<div style="padding: 10px; font-size: 0.6rem; color: #666;">NO ACTIVE CHATS
-</div>
-</div>
-</div>
-<!-- Right Pane: Active Thread -->
-<div id="chatbox-thread">
-<div id="chatbox-thread-header">
-<span id="chatbox-target-name">SELECT A CONTACT</span>
-</div>
-<div id="chatbox-messages">
-<!-- Private messages injected here -->
-</div>
-<div id="chatbox-input-area">
-<input type="text" id="chatbox-input" placeholder="Type private message..."
-disabled />
-<button id="chatbox-send" disabled>SEND</button>
-</div>
-</div>
-</div>
-</div>
+    <div id="the-chatbox" style="display: none;">
+        <div class="box-header" id="chatbox-header">
+            <span>THE CHATBOX // PRIVATE</span>
+            <button id="chatbox-close">X</button>
+        </div>
+        <div id="chatbox-main">
+            <!-- Left Pane: Conversations -->
+            <div id="chatbox-contacts">
+                <div class="chatbox-sub-header">CONTACTS</div>
+                <div id="chatbox-contacts-list">
+                    <!-- Conversations injected here -->
+                    <div style="padding: 10px; font-size: 0.6rem; color: #666;">NO ACTIVE CHATS
+                    </div>
+                </div>
+            </div>
+            <!-- Right Pane: Active Thread -->
+            <div id="chatbox-thread">
+                <div id="chatbox-thread-header">
+                    <span id="chatbox-target-name">SELECT A CONTACT</span>
+                </div>
+                <div id="chatbox-messages">
+                    <!-- Private messages injected here -->
+                </div>
+                <div id="chatbox-input-area">
+                    <input type="text" id="chatbox-input" placeholder="Type private message..." disabled />
+                    <button id="chatbox-send" disabled>SEND</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<!-- Socket.io and SoundCloud Widget API -->
-<script src="/socket.io/socket.io.js"></script>
-<script src="https://w.soundcloud.com/player/api.js"></script>
-<script src="VoiceManager.js"></script>
-<script src="client.js"></script>
+    <!-- Socket.io and SoundCloud Widget API -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://w.soundcloud.com/player/api.js"></script>
+    <script src="VoiceManager.js"></script>
+    <script src="client.js"></script>
 </body>
 
 </html>
