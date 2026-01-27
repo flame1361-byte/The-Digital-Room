@@ -1655,7 +1655,6 @@ document.addEventListener('DOMContentLoaded', () => {
         streamVolumeSlider.addEventListener('input', (e) => {
             const vol = parseFloat(e.target.value);
             remoteVideo.volume = vol;
-            console.log('[STREAM] Client-side volume set to:', Math.round(vol * 100) + '%');
         });
     }
 });
