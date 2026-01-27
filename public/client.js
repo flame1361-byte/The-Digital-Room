@@ -37,10 +37,6 @@ const currentTrackLabel = document.getElementById('current-track-name');
 const currentDjLabel = document.getElementById('current-dj-name');
 
 // Theme Engine Elements
-const themeUploader = document.getElementById('theme-uploader');
-const uploadTriggerBtn = document.getElementById('upload-trigger-btn');
-const applyThemeBtn = document.getElementById('apply-theme-btn');
-const themePreview = document.getElementById('theme-preview');
 const themesGrid = document.getElementById('themes-grid-modal');
 const tabThemes = document.getElementById('tab-themes');
 const tabThemesBtn = document.getElementById('tab-themes-btn');
@@ -381,63 +377,6 @@ function updateVolumeUI() {
 // Set initial visual state
 updateVolumeUI();
 
-// --- Theme Engine Logic ---
-
-if (uploadTriggerBtn) uploadTriggerBtn.onclick = () => themeUploader.click();
-
-if (themeUploader) {
-    themeUploader.onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                extractAndPreviewTheme(img);
-            };
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
-    };
-}
-
-let pendingTheme = null;
-
-function extractAndPreviewTheme(img) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = 10; // Tiny for fast sampling
-    canvas.height = 10;
-    ctx.drawImage(img, 0, 0, 10, 10);
-
-    // Sample a few strategic pixels
-    const p1 = ctx.getImageData(0, 0, 1, 1).data; // BG
-    const p2 = ctx.getImageData(5, 5, 1, 1).data; // Accent
-    const p3 = ctx.getImageData(9, 9, 1, 1).data; // Border
-
-    const rgbToHex = (r, g, b) => '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-
-    pendingTheme = {
-        bg: rgbToHex(p1[0], p1[1], p1[2]),
-        panel: rgbToHex(Math.max(0, p1[0] - 20), Math.max(0, p1[1] - 20), Math.max(0, p1[2] - 20)),
-        border: rgbToHex(p3[0], p3[1], p3[2]),
-        accent: rgbToHex(p2[0], p2[1], p2[2]),
-        text: (p1[0] + p1[1] + p1[2] > 380) ? '#000000' : '#00ff00', // Contrast check
-        bgImage: img.src
-    };
-
-    themePreview.style.background = pendingTheme.bg;
-    themePreview.style.borderColor = pendingTheme.border;
-    themePreview.innerHTML = `<span style="color:${pendingTheme.accent}">READY TO APPLY</span>`;
-    applyThemeBtn.disabled = false;
-}
-
-applyThemeBtn.onclick = () => {
-    if (!pendingTheme) return;
-    applyTheme(pendingTheme); // Now independent
-    addSystemMessage("Custom theme applied to your session!");
-};
 
 function applyTheme(theme) {
     const root = document.documentElement;
