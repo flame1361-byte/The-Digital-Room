@@ -360,15 +360,6 @@ socket.on('roomUpdate', (state) => {
 
     renderAnnouncement(state.announcement);
 
-    // Reactive Vibe Sync
-    const marquee = document.querySelector('header marquee');
-    if (marquee && state.currentVibe) {
-        const fullVibe = `*** ${state.currentVibe} *** BECOME THE DJ ***`;
-        if (marquee.textContent !== fullVibe) {
-            marquee.textContent = fullVibe;
-        }
-    }
-
     syncWithDJ(currentRoomState);
 });
 
@@ -1089,9 +1080,31 @@ if (adminClearChatBtn) {
 }
 
 adminResetDjBtn.onclick = () => {
-    // Local override for testing, but ideally we'd have an endpoint to clear roomState.djId
-    alert("DJ RESET LOGIC PENDING SERVER SIDE ROLE OVERRIDE");
+    if (confirm("RESET THE DJ BOOTH? This will remove the current DJ.")) {
+        socket.emit('adminResetDj', { token: currentUser.token }, (res) => {
+            if (!res.success) alert(res.error);
+        });
+    }
 };
+
+const copyInviteBtn = document.getElementById('copy-invite-btn');
+if (copyInviteBtn) {
+    copyInviteBtn.onclick = () => {
+        const url = window.location.href;
+        navigator.clipboard.writeText(url).then(() => {
+            const originalText = copyInviteBtn.textContent;
+            copyInviteBtn.textContent = 'COPIED!';
+            copyInviteBtn.style.color = '#fff';
+            setTimeout(() => {
+                copyInviteBtn.textContent = originalText;
+                copyInviteBtn.style.color = '#0f0';
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+            alert("Copy failed. Please copy the URL manually.");
+        });
+    };
+}
 
 loadTrackBtn.onclick = () => {
     const url = trackUrlInput.value.trim();

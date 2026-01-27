@@ -6,14 +6,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { usersDb } = require('./db');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'myspace_secret_key_123';
-const ADMIN_USER = process.env.ADMIN_USER || 'mayne';
-
 let roomState = {
     currentTrack: '',
     isPlaying: false,
     seekPosition: 0,
-    currentVibe: 'WELCOME TO THE DIGITAL ROOM',
     announcement: null,
     djId: null,
     users: {},
@@ -22,14 +18,13 @@ let roomState = {
     streams: {}
 };
 
+const JWT_SECRET = process.env.JWT_SECRET || 'myspace_secret_key_123';
+const ADMIN_USER = process.env.ADMIN_USER || 'mayne';
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"],
-        credentials: true
-    },
+    cors: { origin: "*", methods: ["GET", "POST"], credentials: true },
     allowEIO3: true,
     transports: ['websocket'],
     pingTimeout: 10000,
@@ -37,6 +32,12 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
+
+// Health check for Render
+app.get('/health', (req, res) => res.status(200).send('OK'));
+
+app.use(express.json({ limit: '2mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Force DB Load on start
 usersDb.load()
@@ -266,6 +267,87 @@ io.on('connection', (socket) => {
             }
             if (typeof callback === 'function') callback({ success: true });
         } catch (err) { if (typeof callback === 'function') callback({ error: 'Failed' }); }
+    });
+
+    // --- Social Socket Events ---
+    socket.on('getFriends', async ({ token }, callback) => {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            const user = await usersDb.findOne({ _id: decoded.id });
+            if (user && typeof callback === 'function') {
+                callback({ friends: user.friends || [], pending: user.pendingRequests || [] });
+            }
+        } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
+    });
+
+    socket.on('sendFriendRequest', async ({ token, targetUsername }, callback) => {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            const sender = await usersDb.findOne({ _id: decoded.id });
+            const target = await usersDb.findOne({ username: targetUsername });
+            if (!target) { if (typeof callback === 'function') return callback({ error: 'User not found' }); return; }
+            if (target.username === sender.username) { if (typeof callback === 'function') return callback({ error: 'Cannot add yourself' }); return; }
+            await usersDb.update({ _id: target._id }, { $addToSet: { pendingRequests: sender.username } });
+            if (typeof callback === 'function') callback({ success: true });
+        } catch (err) { if (typeof callback === 'function') callback({ error: 'Failed' }); }
+    });
+
+    socket.on('acceptFriend', async ({ token, requesterUsername }, callback) => {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            const user = await usersDb.findOne({ _id: decoded.id });
+            const requester = await usersDb.findOne({ username: requesterUsername });
+            if (!user || !requester) { if (typeof callback === 'function') return callback({ error: 'User not found' }); return; }
+            await usersDb.update({ _id: user._id }, { $pull: { pendingRequests: requesterUsername }, $addToSet: { friends: requesterUsername } });
+            await usersDb.update({ username: requesterUsername }, { $addToSet: { friends: decoded.username } });
+            if (typeof callback === 'function') callback({ success: true });
+        } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
+    });
+
+    // --- Admin Socket Events ---
+    socket.on('adminKick', ({ token, targetSocketId }, callback) => {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            if (decoded.username !== ADMIN_USER) { if (typeof callback === 'function') return callback({ error: 'Forbidden' }); return; }
+            const targetSocket = io.sockets.sockets.get(targetSocketId);
+            if (targetSocket) { targetSocket.disconnect(); if (typeof callback === 'function') callback({ success: true }); }
+            else { if (typeof callback === 'function') callback({ error: 'User not online' }); }
+        } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
+    });
+
+    socket.on('adminAnnouncement', ({ token, text }, callback) => {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            if (decoded.username !== ADMIN_USER) { if (typeof callback === 'function') return callback({ error: 'Forbidden' }); return; }
+            roomState.announcement = text || null;
+            io.emit('roomUpdate', { ...roomState, serverTime: Date.now() });
+            if (typeof callback === 'function') callback({ success: true });
+        } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
+    });
+
+    socket.on('adminClearChat', ({ token }, callback) => {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            if (decoded.username !== ADMIN_USER) { if (typeof callback === 'function') return callback({ error: 'Forbidden' }); return; }
+            roomState.messages = [];
+            addMessageToBuffer({ userName: 'SYSTEM', text: 'Chat history cleared by Admin.', timestamp: new Date().toLocaleTimeString(), isSystem: true });
+            io.emit('init', { state: { ...roomState, users: getUniqueUsers() }, yourId: null });
+            if (typeof callback === 'function') callback({ success: true });
+        } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
+    });
+
+    socket.on('adminResetDj', ({ token }, callback) => {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            if (decoded.username !== ADMIN_USER && decoded.username !== 'kaid') {
+                if (typeof callback === 'function') return callback({ error: 'Forbidden' });
+                return;
+            }
+            roomState.djId = null;
+            io.emit('djChanged', { djId: null });
+            io.emit('newMessage', { userName: 'SYSTEM', text: 'DJ booth has been reset by an administrator.', isSystem: true });
+            if (typeof callback === 'function') callback({ success: true });
+        } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
     });
 
     socket.on('sendMessage', (data) => {
