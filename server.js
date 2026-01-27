@@ -400,6 +400,12 @@ io.on('connection', (socket) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             await usersDb.update({ _id: decoded.id }, { $set: { hasPremiumPack: true } });
+
+            if (roomState.users[socket.id]) {
+                roomState.users[socket.id].hasPremiumPack = true;
+                io.emit('userPartialUpdate', { id: socket.id, hasPremiumPack: true });
+            }
+
             callback({ success: true });
         } catch (err) {
             callback({ error: 'Auth failed' });
@@ -410,6 +416,12 @@ io.on('connection', (socket) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             await usersDb.update({ _id: decoded.id }, { $set: { hasThemePack: true } });
+
+            if (roomState.users[socket.id]) {
+                roomState.users[socket.id].hasThemePack = true;
+                io.emit('userPartialUpdate', { id: socket.id, hasThemePack: true });
+            }
+
             callback({ success: true });
         } catch (err) {
             callback({ error: 'Auth failed' });
@@ -420,6 +432,12 @@ io.on('connection', (socket) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             await usersDb.update({ _id: decoded.id }, { $set: { hasWarlockStyle: true } });
+
+            if (roomState.users[socket.id]) {
+                roomState.users[socket.id].hasWarlockStyle = true;
+                io.emit('userPartialUpdate', { id: socket.id, hasWarlockStyle: true });
+            }
+
             callback({ success: true });
         } catch (err) {
             callback({ error: 'Auth failed' });

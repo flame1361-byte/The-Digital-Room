@@ -265,6 +265,12 @@ socket.on('userPartialUpdate', (delta) => {
     // Merge delta into local state
     currentRoomState.users[delta.id] = { ...currentRoomState.users[delta.id], ...delta };
 
+    // If this is ME, update the local currentUser object as well
+    if (delta.id === myId && currentUser) {
+        currentUser = { ...currentUser, ...delta };
+        updatePremiumUI(); // Ensure UI reflects any new unlocks immediately
+    }
+
     // Targeted DOM update would be better, but re-rendering the list is okay for small counts
     // We throttle this to prevent flickering
     requestAnimationFrame(renderUserList);
@@ -764,6 +770,36 @@ if (settingsSubmitBtn) {
                 alert(res.error || 'Update failed');
             }
         });
+    };
+}
+
+// Real-Time Status Updates (v2.0)
+if (statusInput) {
+    statusInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const status = statusInput.value.trim();
+            socket.emit('updateProfile', { token: currentUser.token, status });
+            addSystemMessage("Status updated!");
+        }
+    });
+
+    statusInput.addEventListener('blur', () => {
+        if (currentUser && statusInput.value.trim() !== (currentUser.status || '')) {
+            const status = statusInput.value.trim();
+            socket.emit('updateProfile', { token: currentUser.token, status });
+        }
+    });
+}
+
+if (nameStyleSelect) {
+    nameStyleSelect.onchange = () => {
+        const nameStyle = nameStyleSelect.value;
+        // Basic validation for premium styles (already handled in submit but good for real-time too)
+        if (nameStyle && ['name-gold', 'name-matrix', 'name-ghost', 'name-rainbow-v2', 'name-cherry-blossom'].includes(nameStyle) && !currentUser.hasPremiumPack) {
+            return alert("💎 PREMIUM PACK REQUIRED");
+        }
+        socket.emit('updateProfile', { token: currentUser.token, nameStyle });
+        addSystemMessage("Style updated!");
     };
 }
 
@@ -1507,7 +1543,7 @@ window.onStreamsUpdate = (activeStreams) => {
                     <div style="display: flex; gap: 4px;">
                         ${isMe ?
                         '<span style="font-size: 0.5rem; color: #ff0055; border: 1px solid #ff0055; padding: 1px 4px;">YOU</span>' :
-                        `<button onclick="streamManager.${isWatching ? 'stopWatching' : 'joinStream'}('${s.streamerId}')" 
+                        `<button onclick="streamManager.${isWatching ? 'stopWatching' : 'joinStream'}('${s.streamerId}')"
                                 style="background: ${isWatching ? '#333' : '#ff0055'}; color: white; border: none; font-size: 0.5rem; padding: 2px 6px; cursor: pointer; min-width: 45px;">
                                 ${isWatching ? 'LEAVE' : 'WATCH'}
                             </button>`
