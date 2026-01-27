@@ -245,7 +245,7 @@ class StreamManager {
         sdp = lines.join('\n');
         sdp = sdp.replace(/a=fmtp:(\d+) (.*)/g, (match, pt, params) => {
             if (params.indexOf('opus') !== -1 || sdp.indexOf('a=rtpmap:' + pt + ' opus/48000/2') !== -1) {
-                return `a=fmtp:${pt} ${params};stereo=1;sprop-stereo=1;maxaveragebitrate=510000`;
+                return `a=fmtp:${pt} ${params};stereo=1;sprop-stereo=1;maxaveragebitrate=510000;cbr=1;usedtx=0`;
             }
             return match;
         });
