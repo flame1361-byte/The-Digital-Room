@@ -275,7 +275,21 @@ io.on('connection', (socket) => {
             const decoded = jwt.verify(token, JWT_SECRET);
             const user = await usersDb.findOne({ _id: decoded.id });
             if (user && typeof callback === 'function') {
-                callback({ friends: user.friends || [], pending: user.pendingRequests || [] });
+                const friendUsernames = user.friends || [];
+                const friendDocs = await Promise.all(friendUsernames.map(name => usersDb.findOne({ username: name })));
+
+                const populatedFriends = friendDocs.map(f => {
+                    if (!f) return null;
+                    const isOnline = Object.values(roomState.users).some(u => u.name === f.username);
+                    return {
+                        username: f.username,
+                        badge: f.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif',
+                        nameStyle: f.nameStyle || '',
+                        isOnline
+                    };
+                }).filter(Boolean);
+
+                callback({ friends: populatedFriends, pending: user.pendingRequests || [] });
             }
         } catch (err) { if (typeof callback === 'function') callback({ error: 'Auth failed' }); }
     });
