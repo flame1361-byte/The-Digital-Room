@@ -2,7 +2,8 @@ class StreamManager {
     constructor(socket) {
         this.socket = socket;
         this.localStream = null;
-        this.peers = {}; // socketId -> RTCPeerConnection
+        this.broadcasterPeers = {}; // socketId -> RTCPeerConnection (when broadcasting)
+        this.watchedStreams = {}; // streamerId -> { pc: RTCPeerConnection, videoElement: HTMLVideoElement }
         this.isStreaming = false;
 
         this.setupSocketListeners();
@@ -14,42 +15,64 @@ class StreamManager {
             this.initiateCall(peerId);
         });
 
-        this.socket.on('stream-signal', async ({ from, signal }) => {
-            if (!this.peers[from] && signal.type === 'offer') {
-                this.createPeerConnection(from);
+        this.socket.on('stream-signal', async ({ from, signal, streamerId }) => {
+            // If we are the streamer, use broadcasterPeers
+            if (this.isStreaming && !streamerId) {
+                if (!this.broadcasterPeers[from] && signal.type === 'offer') {
+                    this.createBroadcasterPeerConnection(from);
+                }
+                const pc = this.broadcasterPeers[from];
+                if (!pc) return;
+                await this.handleSDP(pc, from, signal);
             }
-
-            if (!this.peers[from]) return;
-
-            if (signal.type === 'offer' || signal.type === 'answer') {
-                try {
-                    await this.peers[from].setRemoteDescription(new RTCSessionDescription(signal));
-                    if (signal.type === 'offer') {
-                        const answer = await this.peers[from].createAnswer();
-                        await this.peers[from].setLocalDescription(answer);
-                        this.socket.emit('stream-signal', { to: from, signal: answer });
-                    }
-                } catch (err) {
-                    console.error('[STREAM] SDP Error:', err);
+            // If we are a viewer, use watchedStreams
+            else if (streamerId) {
+                if (!this.watchedStreams[streamerId] && signal.type === 'offer') {
+                    this.createViewerPeerConnection(streamerId, from);
                 }
-            } else if (signal.type === 'candidate' && signal.candidate) {
-                try {
-                    await this.peers[from].addIceCandidate(new RTCIceCandidate(signal.candidate));
-                } catch (e) {
-                    console.warn('[STREAM] ICE Candidate Error:', e);
-                }
+                const peerData = this.watchedStreams[streamerId];
+                if (!peerData) return;
+                await this.handleSDP(peerData.pc, from, signal, streamerId);
             }
         });
 
-        this.socket.on('stream-update', (streamInfo) => {
-            if (window.updateStreamUI) window.updateStreamUI(streamInfo);
+        this.socket.on('stream-update', (activeStreams) => {
+            if (window.onStreamsUpdate) window.onStreamsUpdate(activeStreams);
+            // Cleanup watched streams if they are no longer active
+            const activeIds = (activeStreams || []).map(s => s.streamerId);
+            Object.keys(this.watchedStreams).forEach(id => {
+                if (!activeIds.includes(id)) {
+                    console.log(`[STREAM] Watch cleanup: Streamer ${id} is no longer live.`);
+                    this.stopWatching(id);
+                }
+            });
         });
+    }
+
+    async handleSDP(pc, from, signal, streamerId = null) {
+        if (signal.type === 'offer' || signal.type === 'answer') {
+            try {
+                await pc.setRemoteDescription(new RTCSessionDescription(signal));
+                if (signal.type === 'offer') {
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    this.socket.emit('stream-signal', { to: from, signal: answer, streamerId });
+                }
+            } catch (err) {
+                console.error('[STREAM] SDP Error:', err);
+            }
+        } else if (signal.type === 'candidate' && signal.candidate) {
+            try {
+                await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            } catch (e) {
+                console.warn('[STREAM] ICE Candidate Error:', e);
+            }
+        }
     }
 
     async startShare() {
         try {
             console.log('[STREAM] Requesting screen share... (1080p/60fps/Hi-Fi Audio)');
-            // Optimized constraints for 1080p Clarity & Studio Audio
             const constraints = {
                 video: {
                     width: { ideal: 1920, max: 1920 },
@@ -66,33 +89,18 @@ class StreamManager {
 
             this.localStream = await navigator.mediaDevices.getDisplayMedia(constraints);
 
-            // Hardened 60FPS: Apply constraints again after acquisition to ensure browser prioritizes fluency
             const videoTrack = this.localStream.getVideoTracks()[0];
             if (videoTrack) {
-                console.log('[STREAM] Hardening 60FPS constraints...');
-                try {
-                    await videoTrack.applyConstraints({
-                        frameRate: { ideal: 60 }
-                    });
-                } catch (e) {
-                    console.warn('[STREAM] Failed to apply 60FPS constraint post-capture:', e);
-                }
-
-                // Critical Fix: Force "detail" hint to prevent blurriness during motion
-                if ('contentHint' in videoTrack) {
-                    videoTrack.contentHint = 'detail';
-                }
+                await videoTrack.applyConstraints({ frameRate: { ideal: 60 } }).catch(() => { });
+                if ('contentHint' in videoTrack) videoTrack.contentHint = 'detail';
             }
 
             this.isStreaming = true;
             this.socket.emit('stream-start');
 
-            // Handle track ending via browser UI
             this.localStream.getVideoTracks()[0].onended = () => this.stopShare();
 
-            // Local preview
             if (window.onLocalStream) window.onLocalStream(this.localStream);
-
             return true;
         } catch (err) {
             console.error('[STREAM] Share failed:', err);
@@ -108,27 +116,30 @@ class StreamManager {
             this.localStream.getTracks().forEach(track => track.stop());
             this.localStream = null;
         }
-        Object.keys(this.peers).forEach(id => {
-            this.peers[id].close();
-            delete this.peers[id];
+        Object.keys(this.broadcasterPeers).forEach(id => {
+            this.broadcasterPeers[id].close();
+            delete this.broadcasterPeers[id];
         });
-        if (window.updateStreamUI) window.updateStreamUI(null);
+        if (window.onLocalStream) window.onLocalStream(null);
     }
 
-    joinStream() {
-        this.socket.emit('stream-join');
+    joinStream(streamerId) {
+        if (this.watchedStreams[streamerId]) return;
+        this.socket.emit('stream-join', streamerId);
     }
 
-    leaveStream() {
-        Object.keys(this.peers).forEach(id => {
-            this.peers[id].close();
-            delete this.peers[id];
-        });
-        if (window.updateStreamUI) window.updateStreamUI(null, true);
+    stopWatching(streamerId) {
+        const peerData = this.watchedStreams[streamerId];
+        if (peerData) {
+            peerData.pc.close();
+            if (peerData.videoElement) peerData.videoElement.remove();
+            delete this.watchedStreams[streamerId];
+        }
+        if (window.onStreamStop) window.onStreamStop(streamerId);
     }
 
-    createPeerConnection(peerId) {
-        console.log('[STREAM] Creating PeerConnection for:', peerId);
+    createBroadcasterPeerConnection(peerId) {
+        console.log('[STREAM] Creating Broadcaster PC for:', peerId);
         const pc = new RTCPeerConnection({
             iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         });
@@ -142,60 +153,63 @@ class StreamManager {
             }
         };
 
-        pc.ontrack = (event) => {
-            console.log('[STREAM] Received remote track from:', peerId);
-            if (window.onRemoteStream) window.onRemoteStream(event.streams[0]);
-        };
-
         if (this.localStream) {
             this.localStream.getTracks().forEach(track => pc.addTrack(track, this.localStream));
         }
 
-        pc.oniceconnectionstatechange = () => {
-            if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
-                console.log('[STREAM] Peer disconnected:', peerId);
-                if (this.peers[peerId]) {
-                    this.peers[peerId].close();
-                    delete this.peers[peerId];
-                }
+        this.broadcasterPeers[peerId] = pc;
+        return pc;
+    }
+
+    createViewerPeerConnection(streamerId, fromId) {
+        console.log('[STREAM] Creating Viewer PC for streamer:', streamerId);
+        const pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                this.socket.emit('stream-signal', {
+                    to: fromId,
+                    signal: { type: 'candidate', candidate: event.candidate },
+                    streamerId
+                });
             }
         };
 
-        this.peers[peerId] = pc;
+        pc.ontrack = (event) => {
+            console.log('[STREAM] Received track from streamer:', streamerId);
+            if (window.onRemoteStream) window.onRemoteStream(event.streams[0], streamerId);
+        };
+
+        pc.oniceconnectionstatechange = () => {
+            if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+                this.stopWatching(streamerId);
+            }
+        };
+
+        this.watchedStreams[streamerId] = { pc };
         return pc;
     }
 
     async initiateCall(peerId) {
-        const pc = this.createPeerConnection(peerId);
+        const pc = this.createBroadcasterPeerConnection(peerId);
         try {
             let offer = await pc.createOffer();
-
-            // Optimization Hack: Modify SDP for High Bitrate Video & Audio
             if (offer.sdp) {
-                let sdp = offer.sdp;
-                sdp = this.setVideoBitrate(sdp, 8000);
-                sdp = this.setAudioBitrate(sdp, 510);
-
-                offer = new RTCSessionDescription({
-                    type: offer.type,
-                    sdp: sdp
-                });
+                offer.sdp = this.setVideoBitrate(offer.sdp, 8000);
+                offer.sdp = this.setAudioBitrate(offer.sdp, 510);
+                offer = new RTCSessionDescription({ type: offer.type, sdp: offer.sdp });
             }
-
             await pc.setLocalDescription(offer);
 
-            // Stricter 60FPS Hardening: Force transmission rate at the encoder level
-            // This ensures friends see 60fps even if the browser tries to throttle
             const senders = pc.getSenders();
             senders.forEach(sender => {
                 if (sender.track && sender.track.kind === 'video') {
                     const params = sender.getParameters();
                     if (!params.encodings) params.encodings = [{}];
-                    // Locking the maxFramerate to 60 for this specific viewer
                     params.encodings[0].maxFramerate = 60;
-                    sender.setParameters(params).catch(err => {
-                        console.warn('[STREAM] Failed to lock sender framerate:', err);
-                    });
+                    sender.setParameters(params).catch(() => { });
                 }
             });
 
@@ -209,13 +223,9 @@ class StreamManager {
         const lines = sdp.split('\n');
         let lineIndex = -1;
         for (let i = 0; i < lines.length; i++) {
-            if (lines[i].indexOf('m=video') === 0) {
-                lineIndex = i;
-                break;
-            }
+            if (lines[i].indexOf('m=video') === 0) { lineIndex = i; break; }
         }
         if (lineIndex === -1) return sdp;
-
         lineIndex++;
         while (lineIndex < lines.length && lines[lineIndex].indexOf('m=') === -1) {
             if (lines[lineIndex].indexOf('c=') === 0) {
@@ -228,30 +238,19 @@ class StreamManager {
     }
 
     setAudioBitrate(sdp, bitrate) {
-        // Opus High-Fidelity Hack
         let lines = sdp.split('\n');
-
-        // 1. Boost bitrate via b=AS
         let audioLine = -1;
         for (let i = 0; i < lines.length; i++) {
-            if (lines[i].indexOf('m=audio') === 0) {
-                audioLine = i;
-                break;
-            }
+            if (lines[i].indexOf('m=audio') === 0) { audioLine = i; break; }
         }
-
         if (audioLine !== -1) {
-            let foundC = false;
-            for (let i = audioLine; i < lines.length && lines[i].indexOf('m=') !== 0 || i === audioLine; i++) {
+            for (let i = audioLine; i < lines.length && (lines[i].indexOf('m=') !== 0 || i === audioLine); i++) {
                 if (lines[i].indexOf('c=') === 0) {
                     lines.splice(i + 1, 0, 'b=AS:' + bitrate);
-                    foundC = true;
                     break;
                 }
             }
         }
-
-        // 2. Enable Stereo and Max Bitrate in fmtp
         sdp = lines.join('\n');
         sdp = sdp.replace(/a=fmtp:(\d+) (.*)/g, (match, pt, params) => {
             if (params.indexOf('opus') !== -1 || sdp.indexOf('a=rtpmap:' + pt + ' opus/48000/2') !== -1) {
@@ -259,7 +258,6 @@ class StreamManager {
             }
             return match;
         });
-
         return sdp;
     }
 }

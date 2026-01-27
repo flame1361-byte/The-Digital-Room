@@ -19,7 +19,7 @@ let roomState = {
     users: {},
     messages: [], // Chat history buffer
     voiceUsers: {}, // Voice channel participants
-    currentStream: null // Screen share state { streamerId, streamerName }
+    streams: {} // Screen share state Map: { streamerId: { streamerId, streamerName } }
 };
 
 const app = express();
@@ -744,10 +744,11 @@ io.on('connection', (socket) => {
             addMessageToBuffer(leaveMsg);
             io.emit('newMessage', leaveMsg);
 
-            if (roomState.currentStream && roomState.currentStream.streamerId === socket.id) {
-                console.log(`[STREAM] Cleanup: ${roomState.currentStream.streamerName} disconnected.`);
-                roomState.currentStream = null;
-                io.emit('stream-update', null);
+            // Multi-Stream Cleanup
+            if (roomState.streams[socket.id]) {
+                console.log(`[STREAM] Cleanup: ${roomState.streams[socket.id].streamerName} disconnected.`);
+                delete roomState.streams[socket.id];
+                io.emit('stream-update', Object.values(roomState.streams));
             }
 
             io.emit('userUpdate', getUniqueUsers());
@@ -768,7 +769,6 @@ io.on('connection', (socket) => {
             };
             console.log(`[VOICE] ${user.name} joined voice channel.`);
             io.emit('voice-update', Object.values(roomState.voiceUsers));
-            // Tell the new joiner to initiate calls to existing users
             const otherUsers = Object.keys(roomState.voiceUsers).filter(id => id !== socket.id);
             socket.emit('voice-peer-list', otherUsers);
         }
@@ -776,18 +776,9 @@ io.on('connection', (socket) => {
 
     socket.on('voice-leave', () => {
         if (roomState.voiceUsers[socket.id]) {
-            console.log(`[VOICE] ${roomState.voiceUsers[socket.id].name} left voice channel.`);
             delete roomState.voiceUsers[socket.id];
             io.emit('voice-update', Object.values(roomState.voiceUsers));
         }
-    });
-
-    socket.on('voice-signal', ({ to, signal }) => {
-        // Relay signal to specific user
-        io.to(to).emit('voice-signal', {
-            from: socket.id,
-            signal
-        });
     });
 
     socket.on('voice-state-update', (state) => {
@@ -798,29 +789,29 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- Screen Share Signaling ---
+    socket.on('voice-signal', ({ to, signal }) => {
+        io.to(to).emit('voice-signal', { from: socket.id, signal });
+    });
+
+    // --- Multi-Stream Signaling (v2.0) ---
     socket.on('stream-start', () => {
         const user = roomState.users[socket.id];
-        if (user && !roomState.currentStream) {
-            roomState.currentStream = {
-                streamerId: socket.id,
-                streamerName: user.name
-            };
-            console.log(`[STREAM] ${user.name} started sharing their screen.`);
-            io.emit('stream-update', roomState.currentStream);
-
-            // Mark user as live for sidebar visibility
+        if (user) {
+            const activeCount = Object.keys(roomState.streams).length;
+            if (activeCount >= 10 && !roomState.streams[socket.id]) {
+                return socket.emit('newMessage', { userName: 'SYSTEM', text: 'MAX 10 STREAMS REACHED.', isSystem: true });
+            }
+            roomState.streams[socket.id] = { streamerId: socket.id, streamerName: user.name };
+            io.emit('stream-update', Object.values(roomState.streams));
             user.isLive = true;
             io.emit('userPartialUpdate', { id: socket.id, isLive: true });
         }
     });
 
     socket.on('stream-stop', () => {
-        if (roomState.currentStream && roomState.currentStream.streamerId === socket.id) {
-            console.log(`[STREAM] ${roomState.currentStream.streamerName} stopped sharing.`);
-            roomState.currentStream = null;
-            io.emit('stream-update', null);
-
+        if (roomState.streams[socket.id]) {
+            delete roomState.streams[socket.id];
+            io.emit('stream-update', Object.values(roomState.streams));
             const user = roomState.users[socket.id];
             if (user) {
                 user.isLive = false;
@@ -829,16 +820,14 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('stream-join', () => {
-        if (roomState.currentStream) {
-            // Signal the streamer to initiate a call to the joiner
-            io.to(roomState.currentStream.streamerId).emit('stream-peer-join', socket.id);
+    socket.on('stream-join', (streamerId) => {
+        if (roomState.streams[streamerId]) {
+            io.to(streamerId).emit('stream-peer-join', socket.id);
         }
     });
 
-    socket.on('stream-signal', ({ to, signal }) => {
-        // Relay high-fidelity stream signaling
-        io.to(to).emit('stream-signal', { from: socket.id, signal });
+    socket.on('stream-signal', ({ to, signal, streamerId }) => {
+        io.to(to).emit('stream-signal', { from: socket.id, signal, streamerId });
     });
 });
 

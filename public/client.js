@@ -108,12 +108,9 @@ let currentRoomState = {
     djId: null,
     messages: [],
     announcement: null,
-    currentTrack: null,
-    isPlaying: false,
-    seekPosition: 0,
-    currentTheme: null,
     lastUpdateAt: 0,
-    voiceUsers: {}
+    voiceUsers: {},
+    activeStreams: [] // List of current broadcasters
 };
 
 // TheChatBox DOM & State
@@ -303,9 +300,12 @@ function renderUserList() {
                         ${user.name === 'mummy' ? '<span class="co-admin-badge" title="CO-ADMIN">⚡</span>' : ''}
                         ${user.isLive ? '<span class="blinker" style="color:#ff0055; font-size: 0.6rem; margin-left: 5px;">[LIVE]</span>' : ''}
                     </div>
-                    ${user.status ? `<div class="user-status-item"><span>“${user.status}”</span></div>` : ''}
-                </div>
-            `;
+                     <span style="font-size: 0.6rem; color: #aaa; font-style: italic;">${user.status || ''}</span>
+                 </div>
+                 <div style="margin-left: auto; display: flex; gap: 5px;">
+                     ${user.isLive ? `<button onclick="event.stopPropagation(); streamManager.joinStream('${user.id}')" style="background:#ff0055; color:white; font-size:0.5rem; padding: 2px 5px; border:none; cursor:pointer;">WATCH</button>` : ''}
+                 </div>
+             `;
             usersContainer.appendChild(div);
         });
     });
@@ -1467,69 +1467,92 @@ socket.on('privateMessage', (msg) => {
     }
 });
 
-// --- Stream UI Integration ---
+// --- Multi-Stream UI Integration (v2.0) ---
 
-if (streamStartBtn) streamStartBtn.onclick = () => streamManager.startShare();
-if (streamStopBtn) streamStopBtn.onclick = () => streamManager.stopShare();
-if (joinStreamBtn) joinStreamBtn.onclick = () => streamManager.joinStream();
-if (leaveStreamBtn) leaveStreamBtn.onclick = () => streamManager.leaveStream();
+const streamsGrid = document.getElementById('streams-grid');
+const streamCountBadge = document.getElementById('stream-count-badge');
 
-window.updateStreamUI = (streamInfo, isLocalLeave = false) => {
-    requestAnimationFrame(() => {
-        const isOwner = (currentUser && (currentUser.username === 'mayne' || currentUser.username === 'kaid' || currentUser.username === 'mummy'));
+window.onStreamsUpdate = (activeStreams) => {
+    currentRoomState.activeStreams = activeStreams || [];
+    if (streamCountBadge) streamCountBadge.textContent = `${currentRoomState.activeStreams.length}/10`;
 
-        if (!streamInfo) {
-            if (!isLocalLeave) {
-                if (streamViewport) streamViewport.style.display = 'none';
-                if (remoteVideo) remoteVideo.srcObject = null;
-            }
-            if (streamStartBtn) streamStartBtn.style.display = isOwner ? 'block' : 'none';
-            if (streamStopBtn) streamStopBtn.style.display = 'none';
-            if (joinStreamBtn) joinStreamBtn.style.display = 'block';
-            if (leaveStreamBtn) leaveStreamBtn.style.display = 'none';
-            if (streamStatusMsg) {
-                streamStatusMsg.textContent = 'STREAM OVER';
-                streamStatusMsg.style.display = 'block';
-            }
-            return;
-        }
+    // Toggle overall viewport
+    const hasStreamsWatcherIsWatching = Object.keys(streamManager.watchedStreams).length > 0;
+    const isBroadcasting = streamManager.isStreaming;
 
-        if (streamViewport) streamViewport.style.display = 'block';
-        if (streamerNameEl) streamerNameEl.textContent = streamInfo.streamerName;
+    if (streamViewport) {
+        streamViewport.style.display = (hasStreamsWatcherIsWatching || isBroadcasting) ? 'block' : 'none';
+    }
 
-        const isMe = (myId === streamInfo.streamerId);
-        if (streamStartBtn) streamStartBtn.style.display = (isOwner && !isMe) ? 'block' : 'none';
-        if (streamStopBtn) streamStopBtn.style.display = isMe ? 'block' : 'none';
-
-        if (isMe) {
-            if (streamStatusMsg) {
-                streamStatusMsg.textContent = 'YOU ARE LIVE';
-                streamStatusMsg.style.display = 'flex';
-            }
-            if (joinStreamBtn) joinStreamBtn.style.display = 'none';
-            if (leaveStreamBtn) leaveStreamBtn.style.display = 'none';
-        } else {
-            if (streamStatusMsg && !remoteVideo.srcObject) {
-                streamStatusMsg.textContent = 'JOIN BROADCAST';
-                streamStatusMsg.style.display = 'flex';
-                if (joinStreamBtn) joinStreamBtn.style.display = 'block';
-                if (leaveStreamBtn) leaveStreamBtn.style.display = 'none';
-            }
-        }
-    });
+    renderUserList();
 };
 
-window.onRemoteStream = (stream) => {
-    if (remoteVideo) remoteVideo.srcObject = stream;
-    if (streamStatusMsg) streamStatusMsg.style.display = 'none';
-    if (joinStreamBtn) joinStreamBtn.style.display = 'none';
-    if (leaveStreamBtn) leaveStreamBtn.style.display = 'block';
+window.onRemoteStream = (stream, streamerId) => {
+    if (!streamsGrid) return;
+
+    // Create container for this specific streamer
+    let container = document.getElementById(`stream-card-${streamerId}`);
+    if (!container) {
+        container = document.createElement('div');
+        container.id = `stream-card-${streamerId}`;
+        container.className = 'stream-card';
+        container.style = 'position: relative; background: #000; border: 1px solid #ff0055; aspect-ratio: 16/9;';
+
+        const streamerInfo = currentRoomState.activeStreams.find(s => s.streamerId === streamerId);
+        const name = streamerInfo ? streamerInfo.streamerName : 'Unknown Streamer';
+
+        container.innerHTML = `
+            <div style="position: absolute; top:0; left:0; right:0; background: rgba(255,0,85,0.8); color:white; font-size:0.6rem; padding: 2px 5px; z-index:10; display:flex; justify-content:space-between;">
+                <span>BROADCAST: ${name}</span>
+                <button onclick="streamManager.stopWatching('${streamerId}')" style="background:none; border:none; color:white; cursor:pointer; font-weight:bold;">X</button>
+            </div>
+            <video autoplay playsinline style="width:100%; height:100%; object-fit:contain;"></video>
+            <div style="position: absolute; bottom: 5px; right: 5px; display:flex; gap: 5px; align-items:center;">
+                 <span style="color:white; font-size:0.5rem; font-family:monospace;">VOL:</span>
+                 <input type="range" class="stream-vol-slider" min="0" max="1" step="0.05" value="1" style="width:50px; height:8px; accent-color:#ff0055;">
+            </div>
+        `;
+        streamsGrid.appendChild(container);
+
+        const video = container.querySelector('video');
+        const slider = container.querySelector('.stream-vol-slider');
+
+        video.srcObject = stream;
+        slider.oninput = (e) => { video.volume = e.target.value; };
+
+        streamManager.watchedStreams[streamerId].videoElement = container;
+    }
 };
 
 window.onLocalStream = (stream) => {
-    if (remoteVideo) remoteVideo.srcObject = stream;
-    if (streamStatusMsg) streamStatusMsg.style.display = 'none';
+    if (stream) {
+        // Just show a placeholder for yourself or a local preview
+        window.onRemoteStream(stream, myId);
+    } else {
+        // Cleanup local card
+        const card = document.getElementById(`stream-card-${myId}`);
+        if (card) card.remove();
+    }
 };
+
+window.onStreamStop = (streamerId) => {
+    const card = document.getElementById(`stream-card-${streamerId}`);
+    if (card) card.remove();
+
+    const hasStreams = Object.keys(streamManager.watchedStreams).length > 0;
+    if (!hasStreams && !streamManager.isStreaming && streamViewport) {
+        streamViewport.style.display = 'none';
+    }
+};
+
+// Multi-Stream v2.0 Button Wiring
+document.addEventListener('DOMContentLoaded', () => {
+    const startBtn = document.getElementById('stream-start-btn');
+    const stopBtn = document.getElementById('stream-stop-btn');
+
+    if (startBtn) startBtn.onclick = () => streamManager.startShare();
+    if (stopBtn) stopBtn.onclick = () => streamManager.stopShare();
+});
 
 // Stream Volume Control
 document.addEventListener('DOMContentLoaded', () => {
