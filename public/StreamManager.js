@@ -173,6 +173,22 @@ class StreamManager {
             }
 
             await pc.setLocalDescription(offer);
+
+            // Stricter 60FPS Hardening: Force transmission rate at the encoder level
+            // This ensures friends see 60fps even if the browser tries to throttle
+            const senders = pc.getSenders();
+            senders.forEach(sender => {
+                if (sender.track && sender.track.kind === 'video') {
+                    const params = sender.getParameters();
+                    if (!params.encodings) params.encodings = [{}];
+                    // Locking the maxFramerate to 60 for this specific viewer
+                    params.encodings[0].maxFramerate = 60;
+                    sender.setParameters(params).catch(err => {
+                        console.warn('[STREAM] Failed to lock sender framerate:', err);
+                    });
+                }
+            });
+
             this.socket.emit('stream-signal', { to: peerId, signal: offer });
         } catch (err) {
             console.error('[STREAM] Failed to create offer:', err);
