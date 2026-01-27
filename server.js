@@ -152,7 +152,6 @@ io.on('connection', (socket) => {
                     badge: user.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif',
                     nameStyle: user.nameStyle || '', status: user.status || '',
                     hasPremiumPack: user.hasPremiumPack || false, hasThemePack: user.hasThemePack || false,
-                    hasPremiumPack: user.hasPremiumPack || false, hasThemePack: user.hasThemePack || false,
                     hasHellBoneStyle: user.hasHellBoneStyle || false,
                     friends, pendingRequests: user.pendingRequests || [],
                     isAuthenticated: true
