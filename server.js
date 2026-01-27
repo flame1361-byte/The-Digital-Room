@@ -12,6 +12,7 @@ let roomState = {
     seekPosition: 0,
     announcement: null,
     djId: null,
+    djUsername: null, // Track DJ by name for session restoration
     users: {},
     messages: [],
     voiceUsers: {},
@@ -60,7 +61,9 @@ async function seedStaff() {
 // Periodic cleanup
 setInterval(() => {
     if (roomState.djId && !roomState.users[roomState.djId]) {
+        console.log("Cleanup: Removing ghost DJ", roomState.djId);
         roomState.djId = null;
+        roomState.djUsername = null;
         io.emit('djChanged', { djId: null });
     }
 }, 10000);
@@ -138,6 +141,13 @@ io.on('connection', (socket) => {
             const user = await usersDb.findOne({ _id: decoded.id });
             if (user) {
                 const friends = await getPopulatedFriends(user.friends);
+
+                // DJ RESTORATION LOGIC
+                if (roomState.djUsername === user.username) {
+                    roomState.djId = socket.id; // Reclaim the throne
+                    io.emit('djChanged', { djId: socket.id, djName: user.username });
+                }
+
                 roomState.users[socket.id] = {
                     id: socket.id, dbId: user._id, name: user.username,
                     badge: user.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif',
@@ -228,6 +238,7 @@ io.on('connection', (socket) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         if (decoded.username !== ADMIN_USER && decoded.username !== 'kaid') return callback?.({ error: 'Forbidden' });
         roomState.djId = null;
+        roomState.djUsername = null;
         io.emit('djChanged', { djId: null });
         callback?.({ success: true });
     });
@@ -252,6 +263,7 @@ io.on('connection', (socket) => {
     socket.on('requestDJ', () => {
         if (!roomState.djId && roomState.users[socket.id]) {
             roomState.djId = socket.id;
+            roomState.djUsername = roomState.users[socket.id].name;
             io.emit('djChanged', { djId: socket.id, djName: roomState.users[socket.id].name });
         }
     });
@@ -267,7 +279,8 @@ io.on('connection', (socket) => {
         const user = roomState.users[socket.id];
         if (user) {
             delete roomState.users[socket.id];
-            if (roomState.djId === socket.id) { roomState.djId = null; io.emit('djChanged', { djId: null }); }
+            // REMOVED IMMEDIATE DJ CLEAR. Rely on 10s interval for timeout.
+
             delete roomState.voiceUsers[socket.id];
             delete roomState.streams[socket.id];
             io.emit('userUpdate', getUniqueUsers());
