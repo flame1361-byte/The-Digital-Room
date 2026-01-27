@@ -224,23 +224,39 @@
                         <label style="margin-top: 10px; display: block;">NAME STYLE:</label>
                         <select id="settings-name-style"
                             style="background: #000; color: var(--text-color); border: 1px solid var(--text-color); padding: 5px; font-family: inherit; width: 100%;">
-                            <option value="">NONE (DEFAULT)</option>
-                            <option value="name-rainbow">RAINBOW CYCLE</option>
-                            <option value="name-glitch">DIGITAL GLITCH</option>
-                            <option value="name-neon">NEON PULSE</option>
-                            <option value="name-fire">FIRE FLICKER</option>
-                            <option value="disabled" disabled>--- PREMIUM PACK ---</option>
-                            <option value="name-gold">✨ GOLD SPARKLE (PREMIUM)</option>
-                            <option value="name-matrix">💾 MATRIX RAIN (PREMIUM)</option>
-                            <option value="name-ghost">👻 GHOSTLY (PREMIUM)</option>
-                            <option value="name-rainbow-v2">🌈 RAINBOW DELUXE (PREMIUM)</option>
-                            <option value="name-cherry-blossom">🌸 CHERRY BLOSSOM</option>
-                            <option value="name-co-owner-luck" id="opt-co-owner-luck" style="display: none;">⚡
-                                CO-OWNER'S LUCK (EXCLUSIVE)</option>
-                            <option value="name-demon-eyes" id="opt-demon-eyes" style="display: none;">👿
-                                DEMON'S EYES (OWNER ONLY)</option>
-                            <option value="name-mummy-exclusive" id="opt-mummy-exclusive" style="display: none;">⚱️
-                                THE MUMMY (EXCLUSIVE)</option>
+                            <option value="">[COMMON] DEFAULT WHITE</option>
+
+                            <optgroup label="--- UNCOMMON ---">
+                                <option value="name-rainbow">[UNCOMMON] RAINBOW CYCLE</option>
+                                <option value="name-glitch">[UNCOMMON] DIGITAL GLITCH</option>
+                                <option value="name-neon">[UNCOMMON] NEON PULSE</option>
+                                <option value="name-fire">[UNCOMMON] FIRE FLICKER</option>
+                            </optgroup>
+
+                            <optgroup label="--- RARE (PREMIUM) ---">
+                                <option value="name-gold">[RARE] GOLD SPARKLE</option>
+                                <option value="name-ghost">[RARE] GHOSTLY</option>
+                            </optgroup>
+
+                            <optgroup label="--- EPIC (PREMIUM) ---">
+                                <option value="name-matrix">[EPIC] MATRIX RAIN</option>
+                                <option value="name-rainbow-v2">[EPIC] RAINBOW DELUXE</option>
+                                <option value="name-cherry-blossom">[EPIC] CHERRY BLOSSOM</option>
+                            </optgroup>
+
+                            <optgroup label="--- LEGENDARY (EXCLUSIVE) ---">
+                                <option value="name-co-owner-luck" id="opt-co-owner-luck" style="display: none;">
+                                    [LEGENDARY] CO-OWNER'S LUCK</option>
+                                <option value="name-mummy-exclusive" id="opt-mummy-exclusive" style="display: none;">
+                                    [LEGENDARY] THE MUMMY</option>
+                                <option value="name-demon-eyes" id="opt-demon-eyes" style="display: none;">[LEGENDARY]
+                                    DEMON'S EYES</option>
+                            </optgroup>
+
+                            <optgroup label="--- MYTHIC (ONE-OF-A-KIND) ---">
+                                <option value="name-mythic" id="opt-mythic" style="display: none;">[MYTHIC] PROPHET'S
+                                    VISION</option>
+                            </optgroup>
                         </select>
                         <label style="margin-top: 10px; display: block;">PERSONAL STATUS:</label>
                         <input type="text" id="settings-status" maxlength="40" placeholder="WHAT'S ON YOUR MIND?"

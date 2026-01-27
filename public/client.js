@@ -717,9 +717,9 @@ if (settingsSubmitBtn) {
         const status = statusInput ? statusInput.value.trim() : '';
         const password = document.getElementById('settings-pass').value;
 
-        // Check if selecting premium without pack
-        if (nameStyle && ['name-gold', 'name-matrix', 'name-ghost', 'name-rainbow-v2', 'name-cherry-blossom'].includes(nameStyle) && !currentUser.hasPremiumPack) {
-            return alert("👑 ACCESS DENIED: This style requires the PREMIUM PACK.");
+        // Check if selecting premium/higher without pack
+        if (nameStyle && ['name-gold', 'name-matrix', 'name-ghost', 'name-rainbow-v2', 'name-cherry-blossom', 'name-mythic'].includes(nameStyle) && !currentUser.hasPremiumPack) {
+            return alert("💎 ACCESS DENIED: High-tier styles require the PREMIUM PACK.");
         }
 
         // Check if selecting Demon's Eyes without being mayne
@@ -822,6 +822,11 @@ function updatePremiumUI() {
         // Exclusive Mummy style
         if (opt.value === 'name-mummy-exclusive') {
             opt.style.display = currentUser.username === 'mummy' ? 'block' : 'none';
+        }
+
+        // Mythic [ONE-OF-A-KIND] Prophet's Vision - Only for 'mayne'
+        if (opt.value === 'name-mythic') {
+            opt.style.display = currentUser.username === 'mayne' ? 'block' : 'none';
         }
     });
 }
