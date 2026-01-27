@@ -16,23 +16,21 @@ class StreamManager {
         });
 
         this.socket.on('stream-signal', async ({ from, signal, streamerId }) => {
-            // If we are the streamer, use broadcasterPeers
-            if (this.isStreaming && !streamerId) {
-                if (!this.broadcasterPeers[from] && signal.type === 'offer') {
-                    this.createBroadcasterPeerConnection(from);
-                }
-                const pc = this.broadcasterPeers[from];
-                if (!pc) return;
-                await this.handleSDP(pc, from, signal);
+            console.log('[STREAM] Signal received from:', from, 'type:', signal?.type, 'streamerId:', streamerId);
+
+            // Case 1: We are the streamer, receiving a signal (answer/candidate) from a viewer
+            if (this.broadcasterPeers[from]) {
+                await this.handleSDP(this.broadcasterPeers[from], from, signal, this.socket.id);
             }
-            // If we are a viewer, use watchedStreams
+            // Case 2: We are a viewer, receiving a signal (offer/candidate) from a streamer
             else if (streamerId) {
                 if (!this.watchedStreams[streamerId] && signal.type === 'offer') {
                     this.createViewerPeerConnection(streamerId, from);
                 }
                 const peerData = this.watchedStreams[streamerId];
-                if (!peerData) return;
-                await this.handleSDP(peerData.pc, from, signal, streamerId);
+                if (peerData) {
+                    await this.handleSDP(peerData.pc, from, signal, streamerId);
+                }
             }
         });
 
@@ -148,7 +146,8 @@ class StreamManager {
             if (event.candidate) {
                 this.socket.emit('stream-signal', {
                     to: peerId,
-                    signal: { type: 'candidate', candidate: event.candidate }
+                    signal: { type: 'candidate', candidate: event.candidate },
+                    streamerId: this.socket.id
                 });
             }
         };
@@ -213,7 +212,7 @@ class StreamManager {
                 }
             });
 
-            this.socket.emit('stream-signal', { to: peerId, signal: offer });
+            this.socket.emit('stream-signal', { to: peerId, signal: offer, streamerId: this.socket.id });
         } catch (err) {
             console.error('[STREAM] Failed to create offer:', err);
         }

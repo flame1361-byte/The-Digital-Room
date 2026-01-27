@@ -198,8 +198,8 @@ socket.on('init', (data) => {
         syncWithDJ(currentRoomState);
     }
 
-    if (currentRoomState.currentStream) {
-        window.updateStreamUI(currentRoomState.currentStream);
+    if (currentRoomState.streams) {
+        window.onStreamsUpdate(Object.values(currentRoomState.streams));
     }
 });
 
