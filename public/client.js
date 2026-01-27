@@ -347,6 +347,7 @@ socket.on('roomUpdate', (state) => {
     currentRoomState.isPlaying = state.isPlaying;
     currentRoomState.seekPosition = state.seekPosition + (state.isPlaying ? latencyCompensation : 0);
     currentRoomState.currentTheme = state.currentTheme;
+    currentRoomState.currentVibe = state.currentVibe;
     currentRoomState.announcement = state.announcement;
 
     // Apply shared theme if it exists and is different

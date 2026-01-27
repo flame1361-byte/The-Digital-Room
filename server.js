@@ -13,6 +13,7 @@ let roomState = {
     currentTrack: '', // No default track
     isPlaying: false,
     seekPosition: 0,
+    currentVibe: 'WELCOME TO THE DIGITAL ROOM', // Shared scrolling text
     announcement: null, // Persistent room-wide news
     djId: null,
     users: {},
@@ -79,7 +80,7 @@ setInterval(() => {
         roomState.djId = null;
         io.emit('djChanged', { djId: null });
     }
-}, 3000); // More frequent check for cleaner booth handoffs
+}, 5000);
 
 app.use(express.json({ limit: '2mb' }));
 // Serve static files from the public directory
@@ -736,6 +737,7 @@ io.on('connection', (socket) => {
             roomState.currentTrack = update.track || roomState.currentTrack;
             roomState.isPlaying = update.isPlaying !== undefined ? update.isPlaying : roomState.isPlaying;
             roomState.seekPosition = update.seekPosition !== undefined ? update.seekPosition : roomState.seekPosition;
+            roomState.currentVibe = update.vibe !== undefined ? update.vibe : roomState.currentVibe;
 
             roomState.lastUpdateAt = Date.now(); // Server-side precision timestamp
 
