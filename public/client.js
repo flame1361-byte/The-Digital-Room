@@ -622,7 +622,6 @@ if (loginSubmitBtn) {
         const password = passwordEl.value;
 
         try {
-            console.log('[SOCKET-AUTH] Logging in:', username);
             socket.emit('login', { username, password }, (res) => {
                 if (res.token) {
                     localStorage.setItem('droom_token', res.token);
@@ -633,7 +632,6 @@ if (loginSubmitBtn) {
                 }
             });
         } catch (err) {
-            console.error('Login Error:', err);
             alert('CRITICAL: Socket connection issue.');
         }
     };
@@ -659,17 +657,14 @@ if (regSubmitBtn) {
         regSubmitBtn.textContent = 'WORKING...';
         regSubmitBtn.disabled = true;
 
-        console.log('[SOCKET-AUTH] Safe registering:', username);
         socket.emit('register', { username, password }, (res) => {
             regSubmitBtn.textContent = originalText;
             regSubmitBtn.disabled = false;
 
             if (res.success) {
-                console.log('Registration success via socket');
                 alert(res.message);
                 showModal(loginModal);
             } else {
-                console.warn('Registration failed via socket:', res.error);
                 alert(res.error || 'Registration failed');
             }
         });
@@ -746,7 +741,6 @@ if (settingsSubmitBtn) {
         const payload = { token: currentUser.token, password, nameStyle, status };
         if (badge) payload.badge = badge;
 
-        console.log('[SOCKET-AUTH] Sending profile update...');
         socket.emit('updateProfile', payload, (res) => {
             settingsSubmitBtn.textContent = originalText;
             settingsSubmitBtn.disabled = false;
