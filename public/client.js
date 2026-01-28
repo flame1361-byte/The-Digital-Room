@@ -103,6 +103,9 @@ const joinStreamBtn = document.getElementById('join-stream-btn');
 const leaveStreamBtn = document.getElementById('leave-stream-btn');
 const streamStartBtn = document.getElementById('stream-start-btn');
 const streamStopBtn = document.getElementById('stream-stop-btn');
+const streamSelectorModal = document.getElementById('stream-selector-modal');
+const streamSelectorList = document.getElementById('stream-selector-list');
+const closeStreamSelectorBtns = document.querySelectorAll('.close-stream-selector');
 
 let myId = null;
 let currentUser = null; // Stores { username, badge, token }
@@ -1573,9 +1576,9 @@ window.onStreamsUpdate = (activeStreams) => {
                     <div style="display: flex; gap: 4px;">
                         ${isMe ?
                         '<span style="font-size: 0.5rem; color: #ff0055; border: 1px solid #ff0055; padding: 1px 4px;">YOU</span>' :
-                        `<button onclick="streamManager.${isWatching ? 'stopWatching' : 'joinStream'}('${s.streamerId}')"
-                                style="background: ${isWatching ? '#333' : '#ff0055'}; color: white; border: none; font-size: 0.5rem; padding: 2px 6px; cursor: pointer; min-width: 45px;">
-                                ${isWatching ? 'LEAVE' : 'WATCH'}
+                        `<button onclick="toggleStreamSelector()"
+                                style="background: #ff0055; color: white; border: none; font-size: 0.5rem; padding: 2px 6px; cursor: pointer; min-width: 45px;">
+                                WATCH
                             </button>`
                     }
                     </div>
@@ -1585,8 +1588,63 @@ window.onStreamsUpdate = (activeStreams) => {
         }
     }
 
+    if (streamSelectorModal && streamSelectorModal.style.display === 'flex') {
+        updateStreamSelectorUI();
+    }
+
     renderUserList();
 };
+
+window.toggleStreamSelector = (show = null) => {
+    if (!streamSelectorModal) return;
+    const isShowing = show !== null ? show : streamSelectorModal.style.display === 'none';
+    streamSelectorModal.style.display = isShowing ? 'flex' : 'none';
+    if (isShowing) updateStreamSelectorUI();
+};
+
+function updateStreamSelectorUI() {
+    if (!streamSelectorList) return;
+
+    if (currentRoomState.activeStreams.length === 0) {
+        streamSelectorList.innerHTML = `
+            <div style="text-align: center; color: #ff0055; font-size: 0.8rem; padding: 30px; border: 1px dashed rgba(255, 0, 85, 0.3); border-radius: 8px;">
+                <span class="blinker">●</span> NO ACTIVE SIGNALS DETECTED
+            </div>
+        `;
+        return;
+    }
+
+    streamSelectorList.innerHTML = '';
+    currentRoomState.activeStreams.forEach(s => {
+        const isWatching = !!streamManager.watchedStreams[s.streamerId];
+        const isMe = s.streamerId === myId;
+
+        const div = document.createElement('div');
+        div.className = 'stream-selector-item';
+        div.innerHTML = `
+            <div class="stream-selector-info">
+                <div class="streamer-avatar-mini" style="background: ${isMe ? '#ff0055' : '#111'};"></div>
+                <div>
+                   <div class="streamer-name-modal">${s.streamerName} ${isMe ? '(YOU)' : ''}</div>
+                   <div style="font-size: 0.5rem; color: #ff0055;">1080P / 120 FPS / HIFi</div>
+                </div>
+            </div>
+            ${isMe ?
+                '<span style="font-size: 0.6rem; color: #ff0055; font-weight: bold;">BROADCASTING</span>' :
+                `<button onclick="streamManager.${isWatching ? 'stopWatching' : 'joinStream'}('${s.streamerId}'); toggleStreamSelector(false);" 
+                   class="stream-join-btn-premium ${isWatching ? 'stream-leave-btn-premium' : ''}">
+                   ${isWatching ? 'LEAVE' : 'JOIN STREAM'}
+                </button>`
+            }
+        `;
+        streamSelectorList.appendChild(div);
+    });
+}
+
+// Wire close buttons
+closeStreamSelectorBtns.forEach(btn => {
+    btn.onclick = () => toggleStreamSelector(false);
+});
 
 window.onRemoteStream = (stream, streamerId) => {
     if (!streamsGrid) return;
