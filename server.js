@@ -260,17 +260,25 @@ io.on('connection', (socket) => {
     });
 
     socket.on('requestDJ', () => {
+        console.log(`[DEBUG] requestDJ from ${socket.id} (${roomState.users[socket.id]?.name})`);
         if (!roomState.djId && roomState.users[socket.id]) {
             roomState.djId = socket.id;
             roomState.djUsername = roomState.users[socket.id].name;
+            console.log(`[DEBUG] DJ assigned to: ${roomState.djUsername} (${roomState.djId})`);
             io.emit('djChanged', { djId: socket.id, djName: roomState.users[socket.id].name });
+        } else {
+            console.log(`[DEBUG] requestDJ ignored. Current DJ: ${roomState.djId}`);
         }
     });
 
     socket.on('djUpdate', (update) => {
+        console.log(`[DEBUG] djUpdate from ${socket.id}. Current DJ: ${roomState.djId}`);
         if (socket.id === roomState.djId) {
             roomState = { ...roomState, ...update, lastUpdateAt: Date.now() };
+            console.log('[DEBUG] Broadcasting roomUpdate:', roomState.currentTrack);
             socket.broadcast.emit('roomUpdate', { ...roomState, serverTime: roomState.lastUpdateAt });
+        } else {
+            console.warn(`[DEBUG] djUpdate REJECTED from ${socket.id} (Not DJ)`);
         }
     });
 
