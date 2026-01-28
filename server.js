@@ -97,6 +97,17 @@ function getUniqueUsers() {
     return Object.values(unique);
 }
 
+// --- Periodic Sync Broadcast (Every 5 seconds) ---
+// Ensures all listeners stay synced even if they miss an update
+setInterval(() => {
+    if (roomState.djId && roomState.currentTrack) {
+        io.emit('roomSync', {
+            ...roomState,
+            serverTime: Date.now()
+        });
+    }
+}, 5000);
+
 io.on('connection', (socket) => {
     socket.emit('init', {
         state: { ...roomState, users: getUniqueUsers(), serverTime: roomState.lastUpdateAt || Date.now() },
@@ -273,13 +284,33 @@ io.on('connection', (socket) => {
     });
 
     socket.on('djUpdate', (update) => {
-        console.log(`[DEBUG] djUpdate from ${socket.id}. Current DJ: ${roomState.djId}`);
-        if (socket.id === roomState.djId) {
-            roomState = { ...roomState, ...update, lastUpdateAt: Date.now() };
-            console.log('[DEBUG] Broadcasting roomUpdate:', roomState.currentTrack);
-            socket.broadcast.emit('roomUpdate', { ...roomState, serverTime: roomState.lastUpdateAt });
+        const user = roomState.users[socket.id];
+        const isIdMatch = socket.id === roomState.djId;
+        const isNameMatch = user && user.name === roomState.djUsername;
+
+        if (isIdMatch || isNameMatch) {
+            // Session healing: Update DJ ID if name matches but ID changed
+            if (!isIdMatch && isNameMatch) {
+                console.log(`[DJ] Session healed: ${roomState.djId} -> ${socket.id}`);
+                roomState.djId = socket.id;
+                io.emit('djChanged', { djId: socket.id, djName: user.name });
+            }
+
+            // Normalize and merge fields (support both old and new field names)
+            roomState.currentTrack = update.currentTrack || update.track || roomState.currentTrack;
+            roomState.trackTitle = update.trackTitle || roomState.trackTitle;
+            roomState.isPlaying = update.isPlaying;
+            roomState.seekPosition = update.seekPosition;
+            roomState.currentTheme = update.currentTheme || update.theme || roomState.currentTheme;
+            roomState.lastUpdateAt = Date.now();
+
+            // Broadcast to all listeners
+            socket.broadcast.emit('roomUpdate', {
+                ...roomState,
+                serverTime: roomState.lastUpdateAt
+            });
         } else {
-            console.warn(`[DEBUG] djUpdate REJECTED from ${socket.id} (Not DJ)`);
+            console.warn(`[DJ] Update rejected from ${socket.id} (Not DJ)`);
         }
     });
 

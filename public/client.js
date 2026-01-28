@@ -131,6 +131,7 @@ let currentDMTarget = null;
 let chatboxVisible = false;
 
 let isDJ = false;
+let djHeartbeat = null; // Interval for DJ position broadcasts
 let syncLock = false;
 let volume = 100; // Local volume state
 let isDraggingKnob = false;
@@ -343,6 +344,16 @@ socket.on('djChanged', (data) => {
     currentRoomState.djId = data.djId;
     isDJ = (myId === data.djId);
 
+    // Manage DJ heartbeat
+    if (isDJ && !djHeartbeat) {
+        console.log('[DJ] Starting heartbeat...');
+        djHeartbeat = setInterval(emitDJUpdate, 2000);
+    } else if (!isDJ && djHeartbeat) {
+        console.log('[DJ] Stopping heartbeat...');
+        clearInterval(djHeartbeat);
+        djHeartbeat = null;
+    }
+
     if (data.djId) {
         if (djStatus) djStatus.textContent = `DJ: ${data.djName || 'Someone'}`;
         if (currentDjLabel) currentDjLabel.textContent = data.djName || 'Someone';
@@ -354,6 +365,12 @@ socket.on('djChanged', (data) => {
     }
 
     updateUI(); // Centralize UI updates
+});
+
+// Periodic sync from server (catches drift and late joiners)
+socket.on('roomSync', (state) => {
+    if (isDJ) return;
+    syncWithDJ(state);
 });
 
 socket.on('roomUpdate', (state) => {
