@@ -208,7 +208,7 @@ class StreamManager {
                 if (sender.track && sender.track.kind === 'video') {
                     const params = sender.getParameters();
                     if (!params.encodings) params.encodings = [{}];
-                    params.encodings[0].maxFramerate = 60;
+                    params.encodings[0].maxFramerate = this.targetFPS || 60;
                     sender.setParameters(params).catch(() => { });
                 }
             });

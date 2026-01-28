@@ -1631,7 +1631,7 @@ function updateStreamSelectorUI() {
             </div>
             ${isMe ?
                 '<span style="font-size: 0.6rem; color: #ff0055; font-weight: bold;">BROADCASTING</span>' :
-                `<button onclick="streamManager.${isWatching ? 'stopWatching' : 'joinStream'}('${s.streamerId}'); toggleStreamSelector(false);" 
+                `<button onclick="window.streamManager.${isWatching ? 'stopWatching' : 'joinStream'}('${s.streamerId}'); window.toggleStreamSelector(false);" 
                    class="stream-join-btn-premium ${isWatching ? 'stream-leave-btn-premium' : ''}">
                    ${isWatching ? 'LEAVE' : 'JOIN STREAM'}
                 </button>`
@@ -1645,6 +1645,22 @@ function updateStreamSelectorUI() {
 closeStreamSelectorBtns.forEach(btn => {
     btn.onclick = () => toggleStreamSelector(false);
 });
+
+function renderUserList() {
+    if (!usersContainer) return;
+    usersContainer.innerHTML = '';
+    Object.values(currentRoomState.users || {}).forEach(u => {
+        const div = document.createElement('div');
+        div.className = 'user-item';
+        div.style = 'display: flex; align-items: center; padding: 5px; border-bottom: 1px solid rgba(255,255,255,0.05);';
+        div.innerHTML = `
+            <img src="${u.badge}" style="width: 20px; height: 20px; border-radius: 50%; border: 1px solid #ff00ff; margin-right: 8px;" />
+            <span class="${u.nameStyle || ''}" style="font-size: 0.7rem; color: #fff;">${u.name}</span>
+            ${u.isLive ? ' <span class="blinker" style="color: #ff0055; font-size: 0.6rem; margin-left: auto;">● LIVE</span>' : ''}
+        `;
+        usersContainer.appendChild(div);
+    });
+}
 
 window.onRemoteStream = (stream, streamerId) => {
     if (!streamsGrid) return;
