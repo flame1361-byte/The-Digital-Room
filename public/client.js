@@ -90,7 +90,9 @@ const voiceControlsExtra = document.getElementById('voice-controls-extra');
 const voiceInputSelect = document.getElementById('voice-input-select');
 
 const voiceManager = new VoiceManager(socket);
+window.voiceManager = voiceManager;
 const streamManager = new StreamManager(socket);
+window.streamManager = streamManager;
 
 // Stream DOM
 const streamViewport = document.getElementById('stream-viewport');
