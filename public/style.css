@@ -1846,50 +1846,7 @@ footer {
     vertical-align: middle;
 }
 
-/* --- [MYTHIC] HELL & BONE --- */
-.name-hell-bone {
-    font-weight: 900;
-    text-transform: uppercase;
-    color: #e8e4c9 !important;
-    /* Bone White */
-    text-shadow:
-        0 0 5px #8a0303,
-        0 0 10px #8a0303,
-        0 0 20px #ff0000,
-        0 0 30px #ff0000;
-    animation: hell-bone-flicker 3s infinite alternate;
-    letter-spacing: 2px;
-    transform: translateZ(0);
-    will-change: transform, text-shadow;
-    backface-visibility: hidden;
-}
 
-@keyframes hell-bone-flicker {
-    0% {
-        text-shadow:
-            0 0 4px #8a0303,
-            0 0 10px #8a0303,
-            0 0 18px #ff0000;
-        filter: brightness(1);
-    }
-
-    50% {
-        text-shadow:
-            0 0 2px #500000,
-            0 0 5px #8a0303,
-            0 0 12px #cc0000;
-        opacity: 0.9;
-        filter: brightness(1.2);
-    }
-
-    100% {
-        text-shadow:
-            0 0 5px #8a0303,
-            0 0 12px #8a0303,
-            0 0 22px #ff0000;
-        filter: brightness(1.5);
-    }
-}
 
 /* --- 1440p Screen Share Theater Mode --- */
 #stream-viewport {

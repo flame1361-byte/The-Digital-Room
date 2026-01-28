@@ -9,7 +9,9 @@ const { usersDb } = require('./db');
 let roomState = {
     currentTrack: '',
     isPlaying: false,
-    seekPosition: 0,
+    seekPosition: 0, // Legacy support
+    startedAt: null, // Authoritative server timestamp when playback started/resumed
+    pausedAt: 0,    // Authoritative elapsed ms when paused
     announcement: null,
     djId: null,
     djUsername: null, // Track DJ by name for session restoration
@@ -272,14 +274,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('requestDJ', () => {
-        console.log(`[DEBUG] requestDJ from ${socket.id} (${roomState.users[socket.id]?.name})`);
         if (!roomState.djId && roomState.users[socket.id]) {
             roomState.djId = socket.id;
             roomState.djUsername = roomState.users[socket.id].name;
-            console.log(`[DEBUG] DJ assigned to: ${roomState.djUsername} (${roomState.djId})`);
+            console.log(`[DJ] Assigned: ${roomState.djUsername}`);
             io.emit('djChanged', { djId: socket.id, djName: roomState.users[socket.id].name });
-        } else {
-            console.log(`[DEBUG] requestDJ ignored. Current DJ: ${roomState.djId}`);
         }
     });
 
@@ -291,23 +290,37 @@ io.on('connection', (socket) => {
         if (isIdMatch || isNameMatch) {
             // Session healing: Update DJ ID if name matches but ID changed
             if (!isIdMatch && isNameMatch) {
-                console.log(`[DJ] Session healed: ${roomState.djId} -> ${socket.id}`);
+                console.log(`[DJ] Session healed for ${user.name}`);
                 roomState.djId = socket.id;
                 io.emit('djChanged', { djId: socket.id, djName: user.name });
             }
 
-            // Normalize and merge fields (support both old and new field names)
+            const now = Date.now();
+            const wasPlaying = roomState.isPlaying;
+
+            // Update track info
             roomState.currentTrack = update.currentTrack || update.track || roomState.currentTrack;
             roomState.trackTitle = update.trackTitle || roomState.trackTitle;
-            roomState.isPlaying = update.isPlaying;
-            roomState.seekPosition = update.seekPosition;
-            roomState.currentTheme = update.currentTheme || update.theme || roomState.currentTheme;
-            roomState.lastUpdateAt = Date.now();
 
-            // Broadcast to all listeners
-            socket.broadcast.emit('roomUpdate', {
+            // Authoritative Playback Logic
+            if (update.isPlaying) {
+                if (!wasPlaying || Math.abs((now - roomState.startedAt) - update.seekPosition) > 2000) {
+                    // Start or forced sync if drift > 2s
+                    roomState.startedAt = now - (update.seekPosition || 0);
+                }
+                roomState.isPlaying = true;
+            } else {
+                roomState.pausedAt = update.seekPosition || 0;
+                roomState.isPlaying = false;
+            }
+
+            roomState.currentTheme = update.currentTheme || update.theme || roomState.currentTheme;
+            roomState.lastUpdateAt = now;
+
+            // Broadcast authoritative state
+            io.emit('roomUpdate', {
                 ...roomState,
-                serverTime: roomState.lastUpdateAt
+                serverTime: now
             });
         } else {
             console.warn(`[DJ] Update rejected from ${socket.id} (Not DJ)`);
@@ -355,16 +368,7 @@ io.on('connection', (socket) => {
     });
     socket.on('stream-signal', ({ to, signal, streamerId }) => io.to(to).emit('stream-signal', { from: socket.id, signal, streamerId }));
 
-    socket.on('unlockHellBone', async ({ token }, callback) => {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            await usersDb.update({ _id: decoded.id }, { $set: { hasHellBoneStyle: true } });
-            if (roomState.users[socket.id]) {
-                roomState.users[socket.id].hasHellBoneStyle = true;
-            }
-            callback?.({ success: true });
-        } catch (err) { callback?.({ error: 'Failed' }); }
-    });
+
 });
 
 server.listen(PORT, () => console.log(`TheDigitalRoom is alive at http://localhost:${PORT}`));

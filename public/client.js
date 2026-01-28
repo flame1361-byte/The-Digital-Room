@@ -370,26 +370,18 @@ socket.on('djChanged', (data) => {
 // Periodic sync from server (catches drift and late joiners)
 socket.on('roomSync', (state) => {
     if (isDJ) return;
-    syncWithDJ(state);
+    currentRoomState = { ...currentRoomState, ...state };
+    syncWithDJ(currentRoomState);
 });
 
 socket.on('roomUpdate', (state) => {
     if (isDJ) return; // I am the source of truth
 
-    const latencyCompensation = state.serverTime ? ((Date.now() - serverTimeOffset) - state.serverTime) : 0;
+    currentRoomState = { ...currentRoomState, ...state };
 
-    // Update local state
-    console.log('[SYNC] Received roomUpdate:', state.currentTrack);
-    currentRoomState.currentTrack = state.currentTrack;
     if (state.trackTitle) {
-        currentRoomState.trackTitle = state.trackTitle;
         currentTrackLabel.textContent = state.trackTitle;
     }
-    currentRoomState.isPlaying = state.isPlaying;
-    currentRoomState.seekPosition = state.seekPosition + (state.isPlaying ? latencyCompensation : 0);
-    currentRoomState.currentTheme = state.currentTheme;
-    currentRoomState.currentVibe = state.currentVibe;
-    currentRoomState.announcement = state.announcement;
 
     // Apply shared theme if it exists and is different
     if (state.currentTheme) {
@@ -397,7 +389,6 @@ socket.on('roomUpdate', (state) => {
     }
 
     renderAnnouncement(state.announcement);
-
     syncWithDJ(currentRoomState);
 });
 
@@ -846,41 +837,19 @@ if (claimPremiumBtn) {
     };
 }
 
-const claimHellBoneBtn = document.getElementById('claim-hell-bone-btn');
-const mythicShop = document.getElementById('mythic-shop');
 
-if (claimHellBoneBtn) {
-    claimHellBoneBtn.onclick = async () => {
-        const originalText = claimHellBoneBtn.textContent;
-        claimHellBoneBtn.textContent = 'FORGING...';
-
-        socket.emit('unlockHellBone', { token: currentUser.token }, (res) => {
-            if (res.success) {
-                currentUser.hasHellBoneStyle = true;
-                updatePremiumUI();
-                alert("💀 HELL & BONE FORGED! The eternal flame is yours.");
-            } else {
-                claimHellBoneBtn.textContent = originalText;
-                alert(res.error || "Failed to forge Hell & Bone.");
-            }
-        });
-    };
-}
 
 function updatePremiumUI() {
     if (!currentUser) return;
 
     const isPremium = currentUser.hasPremiumPack;
     const isCoOwner = currentUser.username === 'kaid';
-    const isWarlock = currentUser.hasHellBoneStyle || ['mayne', 'kaid'].includes(currentUser.username); // Kept var name for internal simplicity or could rename, but logic update is key
 
     premiumShop.style.display = isPremium ? 'none' : 'block';
-    if (mythicShop) mythicShop.style.display = isWarlock ? 'none' : 'block';
 
     // Manage dropdown options
     const premiumOptions = nameStyleSelect.querySelectorAll('option');
     premiumOptions.forEach(opt => {
-        // ... (existing logic)
         if (['name-gold', 'name-matrix', 'name-ghost', 'name-rainbow-v2', 'name-cherry-blossom'].includes(opt.value)) {
             if (isPremium) {
                 opt.disabled = false;
@@ -903,11 +872,6 @@ function updatePremiumUI() {
         // Exclusive Mummy style
         if (opt.value === 'name-mummy-exclusive') {
             opt.style.display = currentUser.username === 'mummy' ? 'block' : 'none';
-        }
-
-        // Mythic [ONE-OF-A-KIND] Hell & Bone
-        if (opt.value === 'name-hell-bone') {
-            opt.style.display = isWarlock ? 'block' : 'none'; // Reusing isWarlock boolean for now to avoid breaking scope
         }
     });
 }
@@ -1184,63 +1148,59 @@ function emitDJUpdate() {
 }
 
 function syncWithDJ(state) {
-    if (syncLock || !state.currentTrack) return;
+    if (syncLock || !state.currentTrack || !widget) return;
     syncLock = true;
 
-    // Latency compensation: Calculate how old the update is
-    const packetAge = state.serverTime ? ((Date.now() - serverTimeOffset) - state.serverTime) : 0;
-    const targetPos = state.isPlaying ? (state.seekPosition + packetAge) : state.seekPosition;
+    const serverNow = Date.now() - serverTimeOffset;
+    const targetPos = state.isPlaying ? (serverNow - state.startedAt) : state.pausedAt;
 
     widget.getCurrentSound((sound) => {
         const soundUrl = sound ? sound.permalink_url : null;
 
         if (soundUrl !== state.currentTrack) {
-            console.log('[SYNC] Track mismatch. Loading new track:', state.currentTrack);
             widget.load(state.currentTrack, {
                 auto_play: state.isPlaying,
                 callback: () => {
-                    widget.seekTo(targetPos);
-                    widget.setVolume(volume); // Maintain local volume
-                    currentTrackLabel.textContent = state.trackTitle || state.currentTrack;
-
+                    widget.setVolume(volume);
                     if (state.isPlaying) {
-                        console.log('[SYNC] Forcing playback start...');
+                        widget.seekTo(targetPos);
                         widget.play();
-
-                        // Check if blocked
-                        setTimeout(() => {
-                            widget.isPaused(paused => {
-                                if (paused && state.isPlaying) {
-                                    console.warn('[AUDIO] Autoplay blocked. Showing unlock overlay.');
-                                    if (audioUnlockOverlay) audioUnlockOverlay.style.display = 'flex';
-                                }
-                            });
-                        }, 500);
+                        setTimeout(() => checkAutoplay(state.isPlaying), 1000);
                     }
                     syncLock = false;
                 }
             });
         } else {
-            // Same track, check drift against compensated target
-            widget.getPosition((pos) => {
-                const drift = Math.abs(pos - targetPos);
-                // Tight threshold with compensation: 500ms (Zero-Lag)
-                if (drift > 500) {
-                    widget.seekTo(targetPos);
-                }
-            });
-
-            widget.isPaused((isPaused) => {
-                if (state.isPlaying && isPaused) {
+            widget.isPaused((paused) => {
+                if (state.isPlaying && paused) {
                     widget.play();
-                } else if (!state.isPlaying && !isPaused) {
+                    setTimeout(() => checkAutoplay(true), 1000);
+                } else if (!state.isPlaying && !paused) {
                     widget.pause();
                 }
+
+                widget.getPosition((currentPos) => {
+                    const drift = Math.abs(currentPos - targetPos);
+                    if (state.isPlaying && drift > 1500) {
+                        widget.seekTo(targetPos);
+                    }
+                    syncLock = false;
+                });
             });
-            syncLock = false;
         }
     });
 }
+
+
+function checkAutoplay(shouldBePlaying) {
+    widget.isPaused((paused) => {
+        if (paused && shouldBePlaying) {
+            console.warn('[AUDIO] Playback blocked by browser policy.');
+            if (audioUnlockOverlay) audioUnlockOverlay.style.display = 'flex';
+        }
+    });
+}
+
 
 // --- Widget Event Listeners (For DJ and Sync Enforcement) ---
 
