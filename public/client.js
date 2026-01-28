@@ -510,6 +510,8 @@ function sendMessage() {
                 auto_play: true,
                 callback: () => widget.setVolume(volume)
             });
+            // BROADCAST THE CHANGE
+            socket.emit('djUpdate', { currentTrack: url, isPlaying: true, seekPosition: 0 });
             chatInput.value = '';
             return;
         }
