@@ -1786,16 +1786,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (stopBtn) stopBtn.onclick = () => streamManager.stopShare();
 });
-
-// Stream Volume Control
-document.addEventListener('DOMContentLoaded', () => {
-    const streamVolumeSlider = document.getElementById('stream-volume-slider');
-    const remoteVideo = document.getElementById('remote-stream-video');
-
-    if (streamVolumeSlider && remoteVideo) {
-        streamVolumeSlider.addEventListener('input', (e) => {
-            const vol = parseFloat(e.target.value);
-            remoteVideo.volume = vol;
-        });
-    }
-});
