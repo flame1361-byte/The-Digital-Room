@@ -378,6 +378,9 @@ io.on('connection', (socket) => {
             if (roomState.users[socket.id]) { roomState.users[socket.id].isLive = false; io.emit('userPartialUpdate', { id: socket.id, isLive: false }); }
         }
     });
+    socket.on('stream-join', (streamerId) => {
+        io.to(streamerId).emit('stream-peer-join', socket.id);
+    });
     socket.on('stream-signal', ({ to, signal, streamerId }) => io.to(to).emit('stream-signal', { from: socket.id, signal, streamerId }));
 
 
