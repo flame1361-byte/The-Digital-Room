@@ -363,8 +363,13 @@ socket.on('roomUpdate', (state) => {
 
     // Partial Patching
     // Partial Patching
+    // Partial Patching
     console.log('[DEBUG] Received roomUpdate:', state);
     currentRoomState.currentTrack = state.currentTrack;
+    if (state.trackTitle) {
+        currentRoomState.trackTitle = state.trackTitle;
+        currentTrackLabel.textContent = state.trackTitle;
+    }
     currentRoomState.isPlaying = state.isPlaying;
     currentRoomState.seekPosition = state.seekPosition + (state.isPlaying ? latencyCompensation : 0);
     currentRoomState.currentTheme = state.currentTheme;
