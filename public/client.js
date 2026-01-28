@@ -10,15 +10,26 @@ const socket = io({
     upgrade: true
 });
 
+// SoundCloud Widget Init (With Retry)
 let widget = null;
-try {
+function initWidget(retries = 5) {
     const widgetIframe = document.getElementById('sc-widget');
     if (widgetIframe && typeof SC !== 'undefined') {
-        widget = SC.Widget(widgetIframe);
+        try {
+            widget = SC.Widget(widgetIframe);
+            console.log('[SC] Widget initialized successfully.');
+        } catch (e) {
+            console.error('[SC] Widget init failed:', e);
+        }
+    } else if (retries > 0) {
+        console.warn(`[SC] Widget not ready. Retrying... (${retries})`);
+        setTimeout(() => initWidget(retries - 1), 1000);
+    } else {
+        console.error('[SC] FATAL: SC Widget failed to load.');
     }
-} catch (e) {
-    console.warn("SoundCloud Widget initialization failed:", e);
 }
+// Start init
+initWidget();
 
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
@@ -531,11 +542,40 @@ sendBtn.onclick = sendMessage;
 chatInput.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
 
 changeNameBtn.onclick = () => {
-    const newName = prompt("ENTER YOUR NEW NICKNAME:", "CoolUser_");
-    if (newName) {
-        socket.emit('changeName', newName);
-    }
+    const newName = showGuestNameModal(); // This will be async-ish via UI
 };
+
+function showGuestNameModal() {
+    let modal = document.getElementById('guest-name-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'guest-name-modal';
+        modal.innerHTML = `
+            <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:9999;">
+                <div style="background:var(--panel-bg); padding:20px; border:1px solid var(--border-color); width:300px; text-align:center;">
+                    <h3 style="color:var(--accent-color); margin-top:0;">CHOOSE NAME</h3>
+                    <input type="text" id="guest-name-input" placeholder="CoolGuest_99" style="width:100%; padding:10px; margin:10px 0; background:#000; color:#fff; border:1px solid #444;">
+                    <button id="guest-name-submit" style="width:100%; background:var(--accent-color); border:none; padding:10px; cursor:pointer; font-weight:bold;">SET NAME</button>
+                    <button id="guest-name-cancel" style="width:100%; background:transparent; border:1px solid #666; color:#aaa; padding:5px; margin-top:5px; cursor:pointer;">CANCEL</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        const close = () => modal.style.display = 'none';
+
+        document.getElementById('guest-name-submit').onclick = () => {
+            const input = document.getElementById('guest-name-input');
+            const name = input.value.trim();
+            if (name) {
+                socket.emit('changeName', name);
+                close();
+            }
+        };
+        document.getElementById('guest-name-cancel').onclick = close;
+    }
+    modal.style.display = 'flex';
+}
 
 function sendMessage() {
     const text = chatInput.value.trim();
@@ -722,10 +762,7 @@ changeNameBtn.onclick = () => {
         updatePremiumUI();
         showModal(settingsModal);
     } else {
-        const newName = prompt("ENTER YOUR NEW NICKNAME:", "CoolUser_");
-        if (newName) {
-            socket.emit('changeName', newName);
-        }
+        showGuestNameModal();
     }
 };
 

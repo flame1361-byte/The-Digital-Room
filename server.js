@@ -6,6 +6,22 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { usersDb } = require('./db');
 
+// SECURITY: Validate required environment variables
+const rateLimit = require('express-rate-limit');
+
+// SECURITY: Validate required environment variables
+const JWT_SECRET = process.env.JWT_SECRET;
+const ADMIN_USER = process.env.ADMIN_USER;
+if (!JWT_SECRET || !ADMIN_USER) {
+    console.error('[FATAL] Missing required environment variables: JWT_SECRET and ADMIN_USER');
+    process.exit(1);
+}
+
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+if (ALLOWED_ORIGINS.length === 0) {
+    console.warn("⚠️  WARNING: No ALLOWED_ORIGINS defined. Defaulting to development mode (localhost).");
+}
+
 let roomState = {
     currentTrack: '',
     isPlaying: false,
@@ -21,14 +37,54 @@ let roomState = {
     streams: {}
 };
 
-const JWT_SECRET = process.env.JWT_SECRET || 'myspace_secret_key_123';
-const ADMIN_USER = process.env.ADMIN_USER || 'mayne';
+// Rate Limiter for Socket Events (Simple Token Bucket)
+const socketRateLimits = new Map(); // socketId -> { count, lastReset }
+const RATE_LIMIT_WINDOW = 1000; // 1 second
+const MAX_EVENTS_PER_WINDOW = 10; // 10 events per second
+
+function checkRateLimit(socketId) {
+    const now = Date.now();
+    let record = socketRateLimits.get(socketId);
+
+    if (!record) {
+        record = { count: 1, lastReset: now };
+        socketRateLimits.set(socketId, record);
+        return true;
+    }
+
+    if (now - record.lastReset > RATE_LIMIT_WINDOW) {
+        record.count = 1;
+        record.lastReset = now;
+        return true;
+    }
+
+    if (record.count >= MAX_EVENTS_PER_WINDOW) {
+        return false; // Rate limit exceeded
+    }
+
+    record.count++;
+    return true;
+}
 
 const app = express();
 const server = http.createServer(app);
+
+// HTTP Rate Limiter
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use(apiLimiter);
+
 const io = new Server(server, {
-    cors: { origin: "*", methods: ["GET", "POST"], credentials: true },
-    allowEIO3: true,
+    cors: {
+        origin: ALLOWED_ORIGINS.length > 0 ? ALLOWED_ORIGINS : ['http://localhost:3000'],
+        methods: ["GET", "POST"],
+        credentials: true
+    },
+    allowEIO3: false,
     transports: ['websocket'],
     pingTimeout: 10000,
     pingInterval: 5000
@@ -36,11 +92,65 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
+// SECURITY: Configuration constants
+const CONFIG = {
+    MESSAGE_BUFFER_SIZE: 50,
+    DJ_SYNC_DRIFT_TOLERANCE: 2000,
+    DJ_CLEANUP_INTERVAL: 10000,
+    PASSWORD_MIN_LENGTH: 8,
+    USERNAME_MAX_LENGTH: 50,
+    MESSAGE_MAX_LENGTH: 500,
+    ANNOUNCEMENT_MAX_LENGTH: 200,
+    MAX_STREAMS: 10
+};
+
+// SECURITY: Input validation functions
+function validatePassword(password) {
+    if (!password || password.length < CONFIG.PASSWORD_MIN_LENGTH) {
+        return { valid: false, error: `Password must be at least ${CONFIG.PASSWORD_MIN_LENGTH} characters` };
+    }
+    if (!/[A-Z]/.test(password)) {
+        return { valid: false, error: 'Password must contain at least one uppercase letter' };
+    }
+    if (!/[0-9]/.test(password)) {
+        return { valid: false, error: 'Password must contain at least one number' };
+    }
+    return { valid: true };
+}
+
+function sanitizeText(text, maxLength = 500) {
+    if (typeof text !== 'string') return '';
+    return text.substring(0, maxLength).trim();
+}
+
+function sanitizeUsername(username) {
+    if (typeof username !== 'string') return null;
+    const clean = username.trim();
+    if (clean.length < 2 || clean.length > CONFIG.USERNAME_MAX_LENGTH) return null;
+    if (!/^[a-zA-Z0-9_-]+$/.test(clean)) return null;
+    return clean;
+}
+
+function isValidImageUrl(url) {
+    try {
+        const parsed = new URL(url);
+        return ['http:', 'https:'].includes(parsed.protocol) && /\.(gif|jpg|jpeg|png|webp)$/i.test(parsed.pathname);
+    } catch {
+        return false;
+    }
+}
+
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Health check for Render
-app.get('/health', (req, res) => res.status(200).send('OK'));
+app.get('/health', (req, res) => res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    users: Object.keys(roomState.users).length,
+    djActive: !!roomState.djId
+}));
 
 // Force DB Load on start
 usersDb.load()
@@ -67,7 +177,22 @@ setInterval(() => {
         roomState.djUsername = null;
         io.emit('djChanged', { djId: null });
     }
-}, 10000);
+    // Cleanup stale voice users and streams
+    Object.keys(roomState.voiceUsers).forEach(socketId => {
+        if (!io.sockets.sockets.get(socketId)) delete roomState.voiceUsers[socketId];
+    });
+    Object.keys(roomState.streams).forEach(socketId => {
+        if (!io.sockets.sockets.get(socketId)) delete roomState.streams[socketId];
+    });
+
+    // Cleanup Rate Limits
+    const now = Date.now();
+    for (const [id, record] of socketRateLimits) {
+        if (now - record.lastReset > RATE_LIMIT_WINDOW * 2) {
+            socketRateLimits.delete(id);
+        }
+    }
+}, CONFIG.DJ_CLEANUP_INTERVAL);
 
 // Helper: Populate Friends
 async function getPopulatedFriends(friendUsernames) {
@@ -90,7 +215,7 @@ async function getPopulatedFriends(friendUsernames) {
 
 function addMessageToBuffer(msg) {
     roomState.messages.push(msg);
-    if (roomState.messages.length > 50) roomState.messages.shift();
+    if (roomState.messages.length > CONFIG.MESSAGE_BUFFER_SIZE) roomState.messages.shift();
 }
 
 function getUniqueUsers() {
@@ -118,26 +243,57 @@ io.on('connection', (socket) => {
     });
 
     socket.on('register', async ({ username, password }, callback) => {
+        if (!checkRateLimit(socket.id)) return callback?.({ error: 'Rate limit exceeded. Please wait.' });
+
+        let callbackCalled = false;
+        const safeCallback = (data) => {
+            if (callbackCalled) return;
+            callbackCalled = true;
+            callback?.(data);
+        };
+
         try {
-            if (!username || !password) return callback?.({ error: 'Required' });
-            if (await usersDb.findOne({ username })) return callback?.({ error: 'Exists' });
+            const cleanUsername = sanitizeUsername(username);
+            if (!cleanUsername || !password) return safeCallback({ error: 'Invalid username or password' });
+
+            const pwValidation = validatePassword(password);
+            if (!pwValidation.valid) return safeCallback({ error: pwValidation.error });
+
+            if (await usersDb.findOne({ username: cleanUsername })) return safeCallback({ error: 'Username already exists' });
+
             const hashedPassword = await bcrypt.hash(password, 10);
             await usersDb.insert({
-                username, password: hashedPassword,
+                username: cleanUsername, password: hashedPassword,
                 badge: 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif',
                 nameStyle: '', hasPremiumPack: false, hasThemePack: false, friends: [], pendingRequests: []
             });
-            callback?.({ success: true });
-        } catch (err) { callback?.({ error: 'Error' }); }
+            safeCallback({ success: true });
+        } catch (err) {
+            console.error('[Register] Error:', err.message);
+            safeCallback({ error: 'Registration failed' });
+        }
     });
 
     socket.on('login', async ({ username, password }, callback) => {
+        if (!checkRateLimit(socket.id)) return callback?.({ error: 'Rate limit exceeded. Please wait.' });
+
+        let callbackCalled = false;
+        const safeCallback = (data) => {
+            if (callbackCalled) return;
+            callbackCalled = true;
+            callback?.(data);
+        };
+
         try {
-            const user = await usersDb.findOne({ username });
-            if (!user || !(await bcrypt.compare(password, user.password))) return callback?.({ error: 'Invalid' });
+            const cleanUsername = sanitizeUsername(username);
+            if (!cleanUsername || !password) return safeCallback({ error: 'Invalid credentials' });
+
+            const user = await usersDb.findOne({ username: cleanUsername });
+            if (!user || !(await bcrypt.compare(password, user.password))) return safeCallback({ error: 'Invalid credentials' });
+
             const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
             const friends = await getPopulatedFriends(user.friends);
-            callback?.({
+            safeCallback({
                 token,
                 user: {
                     username: user.username, badge: user.badge, nameStyle: user.nameStyle,
@@ -145,10 +301,20 @@ io.on('connection', (socket) => {
                     friends, pendingRequests: user.pendingRequests || []
                 }
             });
-        } catch (err) { callback?.({ error: 'Error' }); }
+        } catch (err) {
+            console.error('[Login] Error:', err.message);
+            safeCallback({ error: 'Login failed' });
+        }
     });
 
     socket.on('authenticate', async (token, callback) => {
+        let callbackCalled = false;
+        const safeCallback = (data) => {
+            if (callbackCalled) return;
+            callbackCalled = true;
+            callback?.(data);
+        };
+
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             const user = await usersDb.findOne({ _id: decoded.id });
@@ -157,7 +323,7 @@ io.on('connection', (socket) => {
 
                 // DJ RESTORATION LOGIC
                 if (roomState.djUsername === user.username) {
-                    roomState.djId = socket.id; // Reclaim the throne
+                    roomState.djId = socket.id;
                     io.emit('djChanged', { djId: socket.id, djName: user.username });
                 }
 
@@ -173,22 +339,45 @@ io.on('connection', (socket) => {
                 io.emit('userUpdate', getUniqueUsers());
                 const responseData = { ...roomState.users[socket.id], username: user.username };
                 socket.emit('authSuccess', responseData);
-                callback?.({ success: true, user: responseData });
+                safeCallback({ success: true, user: responseData });
                 const joinMsg = { userName: 'SYSTEM', text: `${user.username} entered.`, timestamp: new Date().toLocaleTimeString(), isSystem: true };
                 addMessageToBuffer(joinMsg);
                 io.emit('newMessage', joinMsg);
+            } else {
+                safeCallback({ success: false });
             }
-        } catch (err) { callback?.({ success: false }); }
+        } catch (err) {
+            console.error('[Authenticate] Error:', err.message);
+            safeCallback({ success: false });
+        }
     });
 
     socket.on('updateProfile', async ({ token, badge, password, nameStyle, status }, callback) => {
+        if (!checkRateLimit(socket.id)) return callback?.({ error: 'Rate limit exceeded. Please wait.' });
+
+        let callbackCalled = false;
+        const safeCallback = (data) => {
+            if (callbackCalled) return;
+            callbackCalled = true;
+            callback?.(data);
+        };
+
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             let update = {};
-            if (badge) update.badge = badge;
-            if (password) update.password = await bcrypt.hash(password, 10);
-            if (nameStyle !== undefined) update.nameStyle = nameStyle;
-            if (status !== undefined) update.status = status;
+
+            if (badge) {
+                if (!isValidImageUrl(badge)) return safeCallback({ error: 'Invalid badge URL' });
+                update.badge = badge;
+            }
+            if (password) {
+                const pwValidation = validatePassword(password);
+                if (!pwValidation.valid) return safeCallback({ error: pwValidation.error });
+                update.password = await bcrypt.hash(password, 10);
+            }
+            if (nameStyle !== undefined) update.nameStyle = sanitizeText(nameStyle, 50);
+            if (status !== undefined) update.status = sanitizeText(status, 100);
+
             await usersDb.update({ _id: decoded.id }, { $set: update });
             const updatedUser = await usersDb.findOne({ _id: decoded.id });
             if (roomState.users[socket.id]) {
@@ -197,8 +386,11 @@ io.on('connection', (socket) => {
                 roomState.users[socket.id].status = updatedUser.status || '';
                 io.emit('userPartialUpdate', { id: socket.id, ...update });
             }
-            callback?.({ success: true, user: updatedUser });
-        } catch (err) { callback?.({ error: 'Failed' }); }
+            safeCallback({ success: true, user: updatedUser });
+        } catch (err) {
+            console.error('[UpdateProfile] Error:', err.message);
+            safeCallback({ error: 'Failed to update profile' });
+        }
     });
 
     socket.on('getFriends', async ({ token }, callback) => {
@@ -209,54 +401,92 @@ io.on('connection', (socket) => {
                 const friends = await getPopulatedFriends(user.friends);
                 callback?.({ friends, pending: user.pendingRequests || [] });
             }
-        } catch (err) { callback?.({ error: 'Auth failed' }); }
+        } catch (err) {
+            console.error('[GetFriends] Error:', err.message);
+            callback?.({ error: 'Authentication failed' });
+        }
     });
 
     socket.on('sendFriendRequest', async ({ token, targetUsername }, callback) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
-            const target = await usersDb.findOne({ username: targetUsername });
-            if (!target) return callback?.({ error: 'Not found' });
-            if (target.username === decoded.username) return callback?.({ error: 'Self' });
+            const cleanTarget = sanitizeUsername(targetUsername);
+            if (!cleanTarget) return callback?.({ error: 'Invalid username' });
+
+            const target = await usersDb.findOne({ username: cleanTarget });
+            if (!target) return callback?.({ error: 'User not found' });
+            if (target.username === decoded.username) return callback?.({ error: 'Cannot friend yourself' });
+
             await usersDb.update({ _id: target._id }, { $addToSet: { pendingRequests: decoded.username } });
             callback?.({ success: true });
-        } catch (err) { callback?.({ error: 'Failed' }); }
+        } catch (err) {
+            console.error('[SendFriendRequest] Error:', err.message);
+            callback?.({ error: 'Failed to send friend request' });
+        }
     });
 
     socket.on('acceptFriend', async ({ token, requesterUsername }, callback) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
-            await usersDb.update({ _id: decoded.id }, { $pull: { pendingRequests: requesterUsername }, $addToSet: { friends: requesterUsername } });
-            await usersDb.update({ username: requesterUsername }, { $addToSet: { friends: decoded.username } });
+            const cleanRequester = sanitizeUsername(requesterUsername);
+            if (!cleanRequester) return callback?.({ error: 'Invalid username' });
+
+            await usersDb.update({ _id: decoded.id }, { $pull: { pendingRequests: cleanRequester }, $addToSet: { friends: cleanRequester } });
+            await usersDb.update({ username: cleanRequester }, { $addToSet: { friends: decoded.username } });
             callback?.({ success: true });
-        } catch (err) { callback?.({ error: 'Auth failed' }); }
+        } catch (err) {
+            console.error('[AcceptFriend] Error:', err.message);
+            callback?.({ error: 'Failed to accept friend request' });
+        }
     });
 
     socket.on('adminKick', ({ token, targetSocketId }, callback) => {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        if (decoded.username !== ADMIN_USER) return callback?.({ error: 'Forbidden' });
-        const target = io.sockets.sockets.get(targetSocketId);
-        if (target) { target.disconnect(); callback?.({ success: true }); }
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            if (decoded.username !== ADMIN_USER) return callback?.({ error: 'Forbidden' });
+            const target = io.sockets.sockets.get(targetSocketId);
+            if (target) { target.disconnect(); callback?.({ success: true }); }
+        } catch (err) {
+            console.error('[AdminKick] Error:', err.message);
+            callback?.({ error: 'Authentication failed' });
+        }
     });
 
     socket.on('adminAnnouncement', ({ token, text }, callback) => {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        if (decoded.username !== ADMIN_USER) return callback?.({ error: 'Forbidden' });
-        roomState.announcement = text || null;
-        io.emit('roomUpdate', { ...roomState, serverTime: Date.now() });
-        callback?.({ success: true });
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            if (decoded.username !== ADMIN_USER) return callback?.({ error: 'Forbidden' });
+            roomState.announcement = text ? sanitizeText(text, CONFIG.ANNOUNCEMENT_MAX_LENGTH) : null;
+            io.emit('roomUpdate', { ...roomState, serverTime: Date.now() });
+            callback?.({ success: true });
+        } catch (err) {
+            console.error('[AdminAnnouncement] Error:', err.message);
+            callback?.({ error: 'Authentication failed' });
+        }
     });
 
     socket.on('adminResetDj', ({ token }, callback) => {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        if (decoded.username !== ADMIN_USER && decoded.username !== 'kaid') return callback?.({ error: 'Forbidden' });
-        roomState.djId = null;
-        roomState.djUsername = null;
-        io.emit('djChanged', { djId: null });
-        callback?.({ success: true });
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            if (decoded.username !== ADMIN_USER && decoded.username !== 'kaid') return callback?.({ error: 'Forbidden' });
+            roomState.djId = null;
+            roomState.djUsername = null;
+            io.emit('djChanged', { djId: null });
+            callback?.({ success: true });
+        } catch (err) {
+            console.error('[AdminResetDj] Error:', err.message);
+            callback?.({ error: 'Authentication failed' });
+        }
     });
 
     socket.on('sendMessage', (data) => {
+        if (!checkRateLimit(socket.id)) {
+            return socket.emit('newMessage', {
+                isSystem: true,
+                text: '⚠️ You are sending messages too fast.',
+                timestamp: new Date().toLocaleTimeString()
+            });
+        }
         const user = roomState.users[socket.id];
         const msg = {
             userName: user ? user.name : 'Guest', badge: user ? user.badge : null,
@@ -274,6 +504,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('requestDJ', () => {
+        if (!checkRateLimit(socket.id)) return;
         const user = roomState.users[socket.id];
         if (!user) return;
 
@@ -364,7 +595,7 @@ io.on('connection', (socket) => {
 
     socket.on('stream-start', () => {
         const u = roomState.users[socket.id];
-        if (u && Object.keys(roomState.streams).length < 10) {
+        if (u && Object.keys(roomState.streams).length < CONFIG.MAX_STREAMS) {
             roomState.streams[socket.id] = { streamerId: socket.id, streamerName: u.name };
             io.emit('stream-update', Object.values(roomState.streams));
             u.isLive = true;
