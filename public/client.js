@@ -118,6 +118,55 @@ const streamSelectorModal = document.getElementById('stream-selector-modal');
 const streamSelectorList = document.getElementById('stream-selector-list');
 const closeStreamSelectorBtns = document.querySelectorAll('.close-stream-selector');
 
+// Sidebar Toggle for Responsive Design
+function initSidebarToggle() {
+    const userList = document.getElementById('user-list');
+    const profileBox = document.getElementById('profile-box');
+    
+    // Create toggle button if it doesn't exist
+    let toggleBtn = document.querySelector('.sidebar-toggle');
+    if (!toggleBtn && (window.innerWidth <= 1024)) {
+        toggleBtn = document.createElement('button');
+        toggleBtn.className = 'sidebar-toggle';
+        toggleBtn.setAttribute('aria-label', 'Toggle sidebar panels');
+        toggleBtn.setAttribute('aria-expanded', 'false');
+        toggleBtn.textContent = '☰ MENU';
+        document.body.appendChild(toggleBtn);
+    }
+    
+    if (toggleBtn) {
+        toggleBtn.onclick = () => {
+            const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+            const newState = !isExpanded;
+            
+            toggleBtn.setAttribute('aria-expanded', newState);
+            
+            if (userList) {
+                userList.classList.toggle('drawer-open', newState);
+            }
+            if (profileBox) {
+                profileBox.classList.toggle('drawer-open', newState);
+            }
+        };
+    }
+    
+    // Close drawers when clicking outside
+    document.addEventListener('click', (e) => {
+        if (toggleBtn && !e.target.closest('.sidebar-toggle') && !e.target.closest('#user-list') && !e.target.closest('#profile-box')) {
+            if (userList) userList.classList.remove('drawer-open');
+            if (profileBox) profileBox.classList.remove('drawer-open');
+            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+        }
+    });
+}
+
+// Initialize sidebar toggle on load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSidebarToggle);
+} else {
+    initSidebarToggle();
+}
+
 let myId = null;
 let currentUser = null; // Stores { username, badge, token }
 let currentRoomState = {
