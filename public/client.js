@@ -378,10 +378,8 @@ socket.on('roomUpdate', (state) => {
 
     const latencyCompensation = state.serverTime ? ((Date.now() - serverTimeOffset) - state.serverTime) : 0;
 
-    // Partial Patching
-    // Partial Patching
-    // Partial Patching
-    console.log('[DEBUG] Received roomUpdate:', state);
+    // Update local state
+    console.log('[SYNC] Received roomUpdate:', state.currentTrack);
     currentRoomState.currentTrack = state.currentTrack;
     if (state.trackTitle) {
         currentRoomState.trackTitle = state.trackTitle;
@@ -1203,7 +1201,7 @@ function syncWithDJ(state) {
                 callback: () => {
                     widget.seekTo(targetPos);
                     widget.setVolume(volume); // Maintain local volume
-                    currentTrackLabel.textContent = state.currentTrack;
+                    currentTrackLabel.textContent = state.trackTitle || state.currentTrack;
 
                     if (state.isPlaying) {
                         console.log('[SYNC] Forcing playback start...');
