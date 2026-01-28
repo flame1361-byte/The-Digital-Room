@@ -274,12 +274,24 @@ io.on('connection', (socket) => {
     });
 
     socket.on('requestDJ', () => {
-        if (!roomState.djId && roomState.users[socket.id]) {
-            roomState.djId = socket.id;
-            roomState.djUsername = roomState.users[socket.id].name;
-            console.log(`[DJ] Assigned: ${roomState.djUsername}`);
-            io.emit('djChanged', { djId: socket.id, djName: roomState.users[socket.id].name });
+        const user = roomState.users[socket.id];
+        if (!user) return;
+
+        if (roomState.djId && roomState.djId !== socket.id) {
+            // Booth is occupied. Enforce dismissal and notify
+            socket.emit('djChanged', { djId: roomState.djId, djName: roomState.djUsername });
+            socket.emit('newMessage', {
+                isSystem: true,
+                text: `[!] BOOTH BUSY: ${roomState.djUsername || 'Someone'} is already at the booth.`,
+                timestamp: new Date().toLocaleTimeString()
+            });
+            return;
         }
+
+        roomState.djId = socket.id;
+        roomState.djUsername = user.name;
+        console.log(`[DJ] Assigned: ${roomState.djUsername}`);
+        io.emit('djChanged', { djId: socket.id, djName: user.name });
     });
 
     socket.on('djUpdate', (update) => {

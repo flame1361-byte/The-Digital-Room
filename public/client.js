@@ -1117,6 +1117,10 @@ loadTrackBtn.onclick = () => {
                 widget.setVolume(volume);
                 // Instant update for the room
                 emitDJUpdate();
+                // Surge heartbeat for faster room catching
+                for (let i = 1; i <= 3; i++) {
+                    setTimeout(emitDJUpdate, i * 800);
+                }
             }
         });
         trackUrlInput.value = '';
@@ -1211,6 +1215,15 @@ widget.bind(SC.Widget.Events.READY, () => {
     widget.bind(SC.Widget.Events.PLAY, () => {
         if (isDJ) {
             emitDJUpdate();
+        } else {
+            // Enforcement: If listener tries to play, verify if they should be playing
+            if (currentRoomState.isPlaying) {
+                // Already playing, just let it be or snap to target
+                syncWithDJ(currentRoomState);
+            } else {
+                // Room is paused, listener MUST stay paused
+                widget.pause();
+            }
         }
     });
 
@@ -1221,6 +1234,7 @@ widget.bind(SC.Widget.Events.READY, () => {
             // Bulletproof Enforcement: If room is playing, don't let listeners pause!
             if (currentRoomState.isPlaying) {
                 widget.play();
+                syncWithDJ(currentRoomState);
             }
         }
     });
@@ -1236,12 +1250,7 @@ widget.bind(SC.Widget.Events.READY, () => {
             emitDJUpdate();
         } else {
             // Bulletproof Enforcement: If listener tries to seek, snap them back to DJ
-            if (currentRoomState.isPlaying && !isDJ) {
-                // Calculate position with latency compensation
-                const packetAge = currentRoomState.serverTime ? (Date.now() - currentRoomState.serverTime) : 0;
-                const targetPos = currentRoomState.seekPosition + packetAge;
-                widget.seekTo(targetPos);
-            }
+            syncWithDJ(currentRoomState);
         }
     });
 
@@ -1257,7 +1266,7 @@ function updateUI() {
         claimDjBtn.style.display = currentRoomState.djId ? 'none' : 'block';
         djToolset.style.display = isDJ ? 'flex' : 'none';
         if (currentRoomState.djId) {
-            djStatus.textContent = `DJ CONNECTED`;
+            djStatus.textContent = `DJ: ${currentRoomState.djUsername || 'CONNECTED'}`;
         }
     });
 }
