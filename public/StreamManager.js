@@ -204,25 +204,30 @@ class StreamManager {
             let offer = await pc.createOffer();
             if (offer.sdp) {
                 offer.sdp = this.setVideoBitrate(offer.sdp, 10000); // BOOSTED: 10Mbps (Nitro Quality)
-                offer.sdp = this.setAudioBitrate(offer.sdp, 510);   // BOOSTED: 510kbps (Hi-Fi)
+                offer.sdp = this.setAudioBitrate(offer.sdp, 256);   // STABILIZED: 256kbps (Ultra Hi-Fi, more stable for entire screen)
                 offer = new RTCSessionDescription({ type: offer.type, sdp: offer.sdp });
             }
             await pc.setLocalDescription(offer);
 
             const senders = pc.getSenders();
             senders.forEach(sender => {
-                if (sender.track && sender.track.kind === 'video') {
-                    const params = sender.getParameters();
-                    if (!params.encodings) params.encodings = [{}];
+                if (!sender.track) return;
 
-                    // PERFORMANCE BOOST: Prioritize framerate over resolution for 120FPS
+                const params = sender.getParameters();
+                if (!params.encodings) params.encodings = [{}];
+
+                if (sender.track.kind === 'video') {
                     params.degradationPreference = 'maintain-framerate';
                     params.encodings[0].maxFramerate = this.targetFPS || 60;
                     params.encodings[0].priority = 'high';
                     params.encodings[0].networkPriority = 'high';
-
-                    sender.setParameters(params).catch(() => { });
+                } else if (sender.track.kind === 'audio') {
+                    // CRITICAL: Give audio high priority to prevent glitches during heavy screen sharing
+                    params.encodings[0].priority = 'high';
+                    params.encodings[0].networkPriority = 'high';
                 }
+
+                sender.setParameters(params).catch(() => { });
             });
 
             this.socket.emit('stream-signal', { to: peerId, signal: offer, streamerId: this.socket.id });
@@ -266,7 +271,8 @@ class StreamManager {
         sdp = lines.join('\n');
         sdp = sdp.replace(/a=fmtp:(\d+) (.*)/g, (match, pt, params) => {
             if (params.indexOf('opus') !== -1 || sdp.indexOf('a=rtpmap:' + pt + ' opus/48000/2') !== -1) {
-                return `a=fmtp:${pt} ${params};stereo=1;sprop-stereo=1;maxaveragebitrate=510000;cbr=1;usedtx=0`;
+                // STABILIZED: 256kbps + VBR (cbr=0) for better resilience during screen share, stereo enabled.
+                return `a=fmtp:${pt} ${params};stereo=1;sprop-stereo=1;maxaveragebitrate=256000;cbr=0;usedtx=0`;
             }
             return match;
         });
