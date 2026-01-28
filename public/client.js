@@ -135,7 +135,7 @@ let chatboxVisible = false;
 let isDJ = false;
 let djHeartbeat = null; // Interval for DJ position broadcasts
 let syncLock = false;
-let volume = 100; // Local volume state
+let volume = parseInt(localStorage.getItem('droom_volume')) || 100; // Persisted volume state
 let isDraggingKnob = false;
 let lastY = 0;
 let serverTimeOffset = 0; // Local - Server time difference
@@ -426,6 +426,9 @@ function updateVolumeUI() {
         if (knobIndicator) knobIndicator.style.transform = `rotate(${rotation}deg)`;
         if (volumePct) volumePct.textContent = `${Math.round(volume)}%`;
         if (widget) widget.setVolume(volume);
+
+        // Persist Choice
+        localStorage.setItem('droom_volume', volume);
     });
 }
 
