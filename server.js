@@ -18,9 +18,12 @@ if (!JWT_SECRET || !ADMIN_USER) {
     process.exit(1);
 }
 
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
-if (ALLOWED_ORIGINS.length === 0) {
-    console.warn("⚠️  WARNING: No ALLOWED_ORIGINS defined. Defaulting to development mode (localhost).");
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : ['http://localhost:3000', 'https://the-digital-room.onrender.com'];
+
+if (process.env.NODE_ENV !== 'production' && ALLOWED_ORIGINS.length === 0) {
+    console.warn("⚠️  WARNING: No ALLOWED_ORIGINS defined for dev.");
 }
 
 let roomState = {
@@ -141,7 +144,23 @@ function isValidImageUrl(url) {
     }
 }
 
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://w.soundcloud.com", "https://api.soundcloud.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "https:", "blob:"], // Allow all HTTPS images (Giphy, etc.)
+            connectSrc: ["'self'", "wss:", "https:"], // Allow WebSocket and external API calls
+            frameSrc: ["'self'", "https://w.soundcloud.com"], // Allow SoundCloud Widget
+            mediaSrc: ["'self'", "blob:"],
+            objectSrc: ["'none'"],
+        },
+    },
+    // Cross-Origin-Embedder-Policy (COEP) can break external iframes; disable or relax it
+    crossOriginEmbedderPolicy: false,
+}));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
