@@ -128,8 +128,13 @@ class StreamManager {
     joinStream(streamerId) {
         if (this.watchedStreams[streamerId]) return;
         this.socket.emit('stream-join', streamerId);
-        if (window.addSystemMessage) {
-            window.addSystemMessage("📡 CONNECTING TO SIGNAL... [TIP: Use the volume slider on the stream card if it overlaps with room music]");
+
+        // AUTO-DUCKING: Mute room music to prevent feedback/delay overlaps
+        if (window.widget) {
+            window.widget.setVolume(window.volume < 10 ? window.volume : 5);
+            if (window.addSystemMessage) {
+                window.addSystemMessage("📡 SIGNAL ACQUIRED: Room music ducked for clarity.");
+            }
         }
     }
 
@@ -140,13 +145,21 @@ class StreamManager {
             if (peerData.videoElement) peerData.videoElement.remove();
             delete this.watchedStreams[streamerId];
         }
+
+        // RESTORE VOLUME: If no more streams are being watched
+        if (Object.keys(this.watchedStreams).length === 0 && window.widget) {
+            window.widget.setVolume(window.volume || 50);
+        }
+
         if (window.onStreamStop) window.onStreamStop(streamerId);
     }
 
     createBroadcasterPeerConnection(peerId) {
         console.log('[STREAM] Creating Broadcaster PC for:', peerId);
         const pc = new RTCPeerConnection({
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require'
         });
 
         pc.onicecandidate = (event) => {
@@ -170,7 +183,9 @@ class StreamManager {
     createViewerPeerConnection(streamerId, fromId) {
         console.log('[STREAM] Creating Viewer PC for streamer:', streamerId);
         const pc = new RTCPeerConnection({
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require'
         });
 
         pc.onicecandidate = (event) => {
