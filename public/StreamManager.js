@@ -233,10 +233,13 @@ class StreamManager {
         try {
             let offer = await pc.createOffer();
             if (offer.sdp) {
-                // ULTRA-STABLE: 15Mbps for 120FPS, 10Mbps for 60FPS
-                const bitrate = this.targetFPS > 60 ? 15000 : 10000;
+                // PRIORITIZE GPU ENCODING: Move H.264 to the front to trigger NVENC/Hardware acceleration
+                offer.sdp = this.prioritizeH264(offer.sdp);
+
+                // ULTRA-QUALITY: 20Mbps for GPU-accelerated 120FPS, 10Mbps for 60FPS
+                const bitrate = this.targetFPS > 60 ? 20000 : 10000;
                 offer.sdp = this.setVideoBitrate(offer.sdp, bitrate);
-                offer.sdp = this.setAudioBitrate(offer.sdp, 256);   // STABILIZED: 256kbps 
+                offer.sdp = this.setAudioBitrate(offer.sdp, 256);
                 offer = new RTCSessionDescription({ type: offer.type, sdp: offer.sdp });
             }
             await pc.setLocalDescription(offer);
@@ -257,7 +260,7 @@ class StreamManager {
                     params.encodings[0].networkPriority = 'high';
 
                     // Force high bitrate at the SVC/Encoding level too
-                    const kbps = this.targetFPS > 60 ? 15000 : 10000;
+                    const kbps = this.targetFPS > 60 ? 20000 : 10000;
                     params.encodings[0].maxBitrate = kbps * 1000;
                     params.encodings[0].minBitrate = 5000 * 1000; // Keep floor high
                 } else if (sender.track.kind === 'audio') {
@@ -316,6 +319,32 @@ class StreamManager {
             return match;
         });
         return sdp;
+    }
+
+    prioritizeH264(sdp) {
+        const lines = sdp.split('\n');
+        const mVideoIndex = lines.findIndex(line => line.startsWith('m=video'));
+        if (mVideoIndex === -1) return sdp;
+
+        const mVideoLine = lines[mVideoIndex];
+        const parts = mVideoLine.split(' ');
+        const payloads = parts.slice(3);
+
+        const h264Payloads = [];
+        const otherPayloads = [];
+
+        payloads.forEach(payload => {
+            const rtpmapLine = lines.find(line => line.startsWith(`a=rtpmap:${payload} H264`));
+            if (rtpmapLine) h264Payloads.push(payload);
+            else otherPayloads.push(payload);
+        });
+
+        if (h264Payloads.length > 0) {
+            const newMVideoLine = parts.slice(0, 3).join(' ') + ' ' + h264Payloads.concat(otherPayloads).join(' ');
+            lines[mVideoIndex] = newMVideoLine;
+        }
+
+        return lines.join('\n');
     }
 }
 
