@@ -196,8 +196,8 @@ class StreamManager {
         try {
             let offer = await pc.createOffer();
             if (offer.sdp) {
-                offer.sdp = this.setVideoBitrate(offer.sdp, 8000);
-                offer.sdp = this.setAudioBitrate(offer.sdp, 510);
+                offer.sdp = this.setVideoBitrate(offer.sdp, 10000); // BOOSTED: 10Mbps (Nitro Quality)
+                offer.sdp = this.setAudioBitrate(offer.sdp, 510);   // BOOSTED: 510kbps (Hi-Fi)
                 offer = new RTCSessionDescription({ type: offer.type, sdp: offer.sdp });
             }
             await pc.setLocalDescription(offer);

@@ -1591,41 +1591,65 @@ window.onStreamsUpdate = (activeStreams) => {
 window.onRemoteStream = (stream, streamerId) => {
     if (!streamsGrid) return;
 
-    // Create container for this specific streamer
     let container = document.getElementById(`stream-card-${streamerId}`);
     if (!container) {
         container = document.createElement('div');
         container.id = `stream-card-${streamerId}`;
         container.className = 'stream-card';
-        container.style = 'position: relative; background: #000; border: 1px solid #ff0055; aspect-ratio: 16/9;';
 
         const streamerInfo = currentRoomState.activeStreams.find(s => s.streamerId === streamerId);
         let name = streamerInfo ? streamerInfo.streamerName : 'Unknown Streamer';
-
-        if (streamerId === myId && currentUser) {
-            name = `YOU (${currentUser.username})`;
-        }
+        if (streamerId === myId && currentUser) name = `YOU (${currentUser.username})`;
 
         container.innerHTML = `
-            <div style="position: absolute; top:0; left:0; right:0; background: rgba(255,0,85,0.8); color:white; font-size:0.6rem; padding: 2px 5px; z-index:10; display:flex; justify-content:space-between;">
-                <span>BROADCAST: ${name}</span>
-                <button onclick="streamManager.stopWatching('${streamerId}')" style="background:none; border:none; color:white; cursor:pointer; font-weight:bold;">X</button>
+            <div class="stream-card-header">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span class="stream-live-tag">LIVE</span>
+                    <span class="streamer-name-tag">${name}</span>
+                </div>
+                <div class="stream-controls-top">
+                    <button class="stream-ctrl-btn pip-btn" title="Picture-in-Picture">📺</button>
+                    <button class="stream-ctrl-btn theater-btn" title="Theater Mode">🎭</button>
+                    <button class="stream-ctrl-btn close-stream-btn" onclick="streamManager.stopWatching('${streamerId}')" title="Stop Watching">X</button>
+                </div>
             </div>
-            <video autoplay playsinline style="width:100%; height:100%; object-fit:contain;"></video>
-            <div style="position: absolute; bottom: 5px; right: 5px; display:flex; gap: 5px; align-items:center;">
-                 <span style="color:white; font-size:0.5rem; font-family:monospace;">VOL:</span>
-                 <input type="range" class="stream-vol-slider" min="0" max="1" step="0.05" value="1" style="width:50px; height:8px; accent-color:#ff0055;">
+            <div class="video-container">
+                <video autoplay playsinline></video>
+            </div>
+            <div class="stream-card-footer">
+                 <div class="stream-vol-ctrl">
+                     <span class="vol-icon">🔊</span>
+                     <input type="range" class="stream-vol-slider" min="0" max="1" step="0.05" value="1">
+                 </div>
             </div>
         `;
         streamsGrid.appendChild(container);
 
         const video = container.querySelector('video');
         const slider = container.querySelector('.stream-vol-slider');
+        const theaterBtn = container.querySelector('.theater-btn');
+        const pipBtn = container.querySelector('.pip-btn');
 
         video.srcObject = stream;
         slider.oninput = (e) => { video.volume = e.target.value; };
 
-        streamManager.watchedStreams[streamerId].videoElement = container;
+        theaterBtn.onclick = () => {
+            container.classList.toggle('theater-mode');
+            const isTheater = container.classList.contains('theater-mode');
+            theaterBtn.textContent = isTheater ? '🖼️' : '🎭';
+            if (isTheater) container.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        pipBtn.onclick = async () => {
+            try {
+                if (document.pictureInPictureElement) await document.exitPictureInPicture();
+                else await video.requestPictureInPicture();
+            } catch (err) { console.error('[STREAM] PiP failed:', err); }
+        };
+
+        if (streamManager.watchedStreams[streamerId]) {
+            streamManager.watchedStreams[streamerId].videoElement = container;
+        }
     }
 };
 
