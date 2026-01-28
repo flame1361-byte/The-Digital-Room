@@ -1707,7 +1707,16 @@ window.onRemoteStream = (stream, streamerId) => {
         const fsBtn = container.querySelector('.fs-btn');
 
         video.srcObject = stream;
-        slider.oninput = (e) => { video.volume = e.target.value; };
+        if (streamerId === myId) {
+            video.muted = true;
+            video.volume = 0;
+            if (slider) slider.value = 0;
+        }
+
+        slider.oninput = (e) => {
+            video.volume = e.target.value;
+            if (streamerId === myId) video.muted = true; // Stay muted if it's me
+        };
 
         // theater Mode Toggle
         theaterBtn.onclick = () => {

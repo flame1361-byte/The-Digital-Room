@@ -78,7 +78,7 @@ class StreamManager {
                     frameRate: { ideal: targetFPS, max: targetFPS }
                 },
                 audio: {
-                    echoCancellation: false,
+                    echoCancellation: true,
                     noiseSuppression: false,
                     autoGainControl: false,
                     channelCount: 2
@@ -125,6 +125,9 @@ class StreamManager {
     joinStream(streamerId) {
         if (this.watchedStreams[streamerId]) return;
         this.socket.emit('stream-join', streamerId);
+        if (window.addSystemMessage) {
+            window.addSystemMessage("📡 CONNECTING TO SIGNAL... [TIP: Use the volume slider on the stream card if it overlaps with room music]");
+        }
     }
 
     stopWatching(streamerId) {
