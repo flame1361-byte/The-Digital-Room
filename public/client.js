@@ -1154,13 +1154,15 @@ function emitDJUpdate() {
     widget.isPaused((paused) => {
         widget.getPosition((pos) => {
             widget.getCurrentSound((sound) => {
+                const title = sound ? sound.title : currentRoomState.currentTrack;
                 socket.emit('djUpdate', {
-                    track: sound ? sound.permalink_url : currentRoomState.currentTrack,
+                    currentTrack: sound ? sound.permalink_url : currentRoomState.currentTrack,
+                    trackTitle: title,
                     isPlaying: !paused,
                     seekPosition: pos,
-                    theme: currentRoomState.currentTheme
+                    currentTheme: currentRoomState.currentTheme
                 });
-                if (sound) currentTrackLabel.textContent = sound.title || sound.permalink_url;
+                if (sound) currentTrackLabel.textContent = title;
             });
         });
     });
