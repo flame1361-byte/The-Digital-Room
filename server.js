@@ -18,12 +18,18 @@ if (!JWT_SECRET || !ADMIN_USER) {
     process.exit(1);
 }
 
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',')
+const hasAllowedOriginsEnv = Boolean(process.env.ALLOWED_ORIGINS);
+const ALLOWED_ORIGINS = hasAllowedOriginsEnv
+    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
     : ['http://localhost:3000', 'https://the-digital-room.onrender.com'];
 
-if (process.env.NODE_ENV !== 'production' && ALLOWED_ORIGINS.length === 0) {
-    console.warn("⚠️  WARNING: No ALLOWED_ORIGINS defined for dev.");
+// Optional additional admin usernames (comma-separated in env)
+const ADDITIONAL_ADMINS = process.env.ADDITIONAL_ADMINS
+    ? process.env.ADDITIONAL_ADMINS.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+if (process.env.NODE_ENV !== 'production' && !hasAllowedOriginsEnv) {
+    console.warn("⚠️  WARNING: No ALLOWED_ORIGINS defined. Defaulting to localhost and the deployed domain for development.");
 }
 
 let roomState = {
@@ -148,11 +154,13 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://w.soundcloud.com", "https://api.soundcloud.com"],
-            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            // Restrict script sources to trusted origins only. Avoid 'unsafe-eval' and 'unsafe-inline'.
+            scriptSrc: ["'self'", "https://w.soundcloud.com", "https://api.soundcloud.com"],
+            // Avoid allowing inline styles; require nonces/hashes if inline styles are needed.
+            styleSrc: ["'self'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
-            imgSrc: ["'self'", "data:", "https:", "blob:"], // Allow all HTTPS images (Giphy, etc.)
-            connectSrc: ["'self'", "wss:", "https:"], // Allow WebSocket and external API calls
+            imgSrc: ["'self'", "data:", "https:", "blob:"],
+            connectSrc: ["'self'", "wss:", "https:"],
             frameSrc: ["'self'", "https://w.soundcloud.com"], // Allow SoundCloud Widget
             mediaSrc: ["'self'", "blob:"],
             objectSrc: ["'none'"],
@@ -500,7 +508,8 @@ io.on('connection', (socket) => {
     socket.on('adminResetDj', ({ token }, callback) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
-            if (decoded.username !== ADMIN_USER && decoded.username !== 'kaid') return callback?.({ error: 'Forbidden' });
+            const isAdditionalAdmin = ADDITIONAL_ADMINS.includes(decoded.username);
+            if (decoded.username !== ADMIN_USER && !isAdditionalAdmin) return callback?.({ error: 'Forbidden' });
             roomState.djId = null;
             roomState.djUsername = null;
             io.emit('djChanged', { djId: null });
@@ -520,9 +529,17 @@ io.on('connection', (socket) => {
             });
         }
         const user = roomState.users[socket.id];
+        const cleanText = sanitizeText((data && data.text) ? data.text : '', CONFIG.MESSAGE_MAX_LENGTH);
+        if (!cleanText) {
+            return socket.emit('newMessage', {
+                isSystem: true,
+                text: '⚠️ Message invalid or empty.',
+                timestamp: new Date().toLocaleTimeString()
+            });
+        }
         const msg = {
             userName: user ? user.name : 'Guest', badge: user ? user.badge : null,
-            nameStyle: user ? user.nameStyle : '', text: data.text, timestamp: new Date().toLocaleTimeString()
+            nameStyle: user ? user.nameStyle : '', text: cleanText, timestamp: new Date().toLocaleTimeString()
         };
         addMessageToBuffer(msg);
         io.emit('newMessage', msg);
@@ -531,7 +548,25 @@ io.on('connection', (socket) => {
     socket.on('privateMessage', ({ targetName, text }) => {
         const sender = roomState.users[socket.id];
         if (!sender?.isAuthenticated) return;
-        const msg = { from: sender.name, to: targetName, text, timestamp: new Date().toLocaleTimeString() };
+
+        if (!checkRateLimit(socket.id)) {
+            return socket.emit('privateMessage', {
+                isSystem: true,
+                text: '⚠️ You are sending messages too fast.',
+                timestamp: new Date().toLocaleTimeString()
+            });
+        }
+
+        const cleanText = sanitizeText(text, CONFIG.MESSAGE_MAX_LENGTH);
+        if (!cleanText) {
+            return socket.emit('privateMessage', {
+                isSystem: true,
+                text: '⚠️ Message invalid or empty.',
+                timestamp: new Date().toLocaleTimeString()
+            });
+        }
+
+        const msg = { from: sender.name, to: targetName, text: cleanText, timestamp: new Date().toLocaleTimeString() };
         Object.values(roomState.users).filter(u => u.name === targetName || u.name === sender.name).forEach(u => io.to(u.id).emit('privateMessage', msg));
     });
 
@@ -653,7 +688,9 @@ server.listen(PORT, () => {
     console.log(`\n✓ TheDigitalRoom server running on port ${PORT}`);
     console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`✓ JWT_SECRET configured: ${JWT_SECRET ? 'YES' : 'NO'}`);
-    console.log(`✓ ADMIN_USER: ${ADMIN_USER}`);
+    // Mask ADMIN_USER to avoid leaking account identifiers in logs
+    const adminDisplay = ADMIN_USER ? (ADMIN_USER.length > 2 ? `${ADMIN_USER[0]}*** (len=${ADMIN_USER.length})` : '***') : 'NOT SET';
+    console.log(`✓ ADMIN_USER: ${adminDisplay}`);
     console.log(`✓ Helmet.js security headers enabled`);
     console.log(`✓ Rate limiting enabled`);
     console.log(`\n🚀 Ready to accept connections!\n`);
