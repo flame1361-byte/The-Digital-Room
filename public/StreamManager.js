@@ -68,14 +68,14 @@ class StreamManager {
         }
     }
 
-    async startShare() {
+    async startShare(targetFPS = 60) {
         try {
-            console.log('[STREAM] Requesting screen share... (1080p/60fps/Hi-Fi Audio)');
+            console.log(`[STREAM] Requesting screen share... (1080p/${targetFPS}fps/Hi-Fi Audio)`);
             const constraints = {
                 video: {
                     width: { ideal: 1920, max: 1920 },
                     height: { ideal: 1080, max: 1080 },
-                    frameRate: { ideal: 60, max: 60 }
+                    frameRate: { ideal: targetFPS, max: targetFPS }
                 },
                 audio: {
                     echoCancellation: false,
@@ -89,11 +89,12 @@ class StreamManager {
 
             const videoTrack = this.localStream.getVideoTracks()[0];
             if (videoTrack) {
-                await videoTrack.applyConstraints({ frameRate: { ideal: 60 } }).catch(() => { });
+                await videoTrack.applyConstraints({ frameRate: { ideal: targetFPS } }).catch(() => { });
                 if ('contentHint' in videoTrack) videoTrack.contentHint = 'detail';
             }
 
             this.isStreaming = true;
+            this.targetFPS = targetFPS; // Store for initiateCall
             this.socket.emit('stream-start');
 
             this.localStream.getVideoTracks()[0].onended = () => this.stopShare();

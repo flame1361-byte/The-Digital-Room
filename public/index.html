@@ -102,10 +102,17 @@
                     style="margin-top: 10px; background: linear-gradient(90deg, #ff0055, #880022); color: #fff;">
                     BROADCAST SYSTEM</div>
                 <div
-                    style="padding: 10px; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 5px;">
+                    style="padding: 10px; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 8px;">
                     <button id="stream-start-btn"
                         style="width: 100%; height: 30px; background: #ff0055; color: white; font-weight: bold; cursor: pointer;">GO
-                        LIVE (1080p/60fps)</button>
+                        LIVE (1080p)</button>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <input type="checkbox" id="stream-120fps-toggle"
+                            style="accent-color: #ff0055; width: 15px; height: 15px; cursor: pointer;">
+                        <label for="stream-120fps-toggle"
+                            style="font-size: 0.6rem; color: #ff0055; font-weight: bold; cursor: pointer; text-shadow: 0 0 5px rgba(255, 0, 85, 0.3);">ULTRA-SMOOTH
+                            (120 FPS)</label>
+                    </div>
                     <button id="stream-stop-btn"
                         style="width: 100%; height: 30px; background: #222; color: #ff0055; border: 1px solid #ff0055; font-weight: bold; cursor: pointer; display: none;">STOP
                         STREAM</button>

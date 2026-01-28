@@ -1693,8 +1693,14 @@ window.onStreamStop = (streamerId) => {
 document.addEventListener('DOMContentLoaded', () => {
     const startBtn = document.getElementById('stream-start-btn');
     const stopBtn = document.getElementById('stream-stop-btn');
+    const fpsToggle = document.getElementById('stream-120fps-toggle');
 
-    if (startBtn) startBtn.onclick = () => streamManager.startShare();
+    if (startBtn) {
+        startBtn.onclick = () => {
+            const targetFPS = (fpsToggle && fpsToggle.checked) ? 120 : 60;
+            streamManager.startShare(targetFPS);
+        };
+    }
     if (stopBtn) stopBtn.onclick = () => streamManager.stopShare();
 });
 
