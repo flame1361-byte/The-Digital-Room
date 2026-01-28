@@ -1609,6 +1609,7 @@ window.onRemoteStream = (stream, streamerId) => {
                 </div>
                 <div class="stream-controls-top">
                     <button class="stream-ctrl-btn pip-btn" title="Picture-in-Picture">📺</button>
+                    <button class="stream-ctrl-btn fs-btn" title="Full Screen">⛶</button>
                     <button class="stream-ctrl-btn theater-btn" title="Theater Mode">🎭</button>
                     <button class="stream-ctrl-btn close-stream-btn" onclick="streamManager.stopWatching('${streamerId}')" title="Stop Watching">X</button>
                 </div>
@@ -1629,10 +1630,12 @@ window.onRemoteStream = (stream, streamerId) => {
         const slider = container.querySelector('.stream-vol-slider');
         const theaterBtn = container.querySelector('.theater-btn');
         const pipBtn = container.querySelector('.pip-btn');
+        const fsBtn = container.querySelector('.fs-btn');
 
         video.srcObject = stream;
         slider.oninput = (e) => { video.volume = e.target.value; };
 
+        // theater Mode Toggle
         theaterBtn.onclick = () => {
             container.classList.toggle('theater-mode');
             const isTheater = container.classList.contains('theater-mode');
@@ -1640,11 +1643,23 @@ window.onRemoteStream = (stream, streamerId) => {
             if (isTheater) container.scrollIntoView({ behavior: 'smooth' });
         };
 
+        // Picture-in-Picture
         pipBtn.onclick = async () => {
             try {
                 if (document.pictureInPictureElement) await document.exitPictureInPicture();
                 else await video.requestPictureInPicture();
             } catch (err) { console.error('[STREAM] PiP failed:', err); }
+        };
+
+        // Full Screen API
+        fsBtn.onclick = () => {
+            if (video.requestFullscreen) {
+                video.requestFullscreen();
+            } else if (video.webkitRequestFullscreen) { /* Safari */
+                video.webkitRequestFullscreen();
+            } else if (video.msRequestFullscreen) { /* IE11 */
+                video.msRequestFullscreen();
+            }
         };
 
         if (streamManager.watchedStreams[streamerId]) {

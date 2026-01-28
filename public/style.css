@@ -1858,6 +1858,14 @@ footer {
     margin-bottom: 25px;
 }
 
+.stream-card.theater-mode {
+    grid-column: 1 / -1;
+    aspect-ratio: auto;
+    min-height: 500px;
+    border-color: #ff0055;
+    box-shadow: 0 0 40px rgba(255, 0, 85, 0.6);
+}
+
 #stream-viewport::after {
     content: " ";
     display: block;
