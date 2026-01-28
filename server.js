@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const helmet = require('helmet');
 const { usersDb } = require('./db');
 
 // SECURITY: Validate required environment variables
@@ -140,6 +141,7 @@ function isValidImageUrl(url) {
     }
 }
 
+app.use(helmet());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -442,6 +444,10 @@ io.on('connection', (socket) => {
 
     socket.on('adminKick', ({ token, targetSocketId }, callback) => {
         try {
+            // SECURITY: Type validation
+            if (typeof token !== 'string' || typeof targetSocketId !== 'string') {
+                return callback?.({ error: 'Invalid parameters' });
+            }
             const decoded = jwt.verify(token, JWT_SECRET);
             if (decoded.username !== ADMIN_USER) return callback?.({ error: 'Forbidden' });
             const target = io.sockets.sockets.get(targetSocketId);
@@ -454,6 +460,13 @@ io.on('connection', (socket) => {
 
     socket.on('adminAnnouncement', ({ token, text }, callback) => {
         try {
+            // SECURITY: Type validation
+            if (typeof token !== 'string') {
+                return callback?.({ error: 'Invalid parameters' });
+            }
+            if (text !== null && text !== undefined && typeof text !== 'string') {
+                return callback?.({ error: 'Invalid parameters' });
+            }
             const decoded = jwt.verify(token, JWT_SECRET);
             if (decoded.username !== ADMIN_USER) return callback?.({ error: 'Forbidden' });
             roomState.announcement = text ? sanitizeText(text, CONFIG.ANNOUNCEMENT_MAX_LENGTH) : null;
@@ -595,7 +608,7 @@ io.on('connection', (socket) => {
 
     socket.on('stream-start', () => {
         const u = roomState.users[socket.id];
-        if (u && Object.keys(roomState.streams).length < CONFIG.MAX_STREAMS) {
+        if (u && Object.keys(roomState.streams).length < 10) {
             roomState.streams[socket.id] = { streamerId: socket.id, streamerName: u.name };
             io.emit('stream-update', Object.values(roomState.streams));
             u.isLive = true;
@@ -617,7 +630,22 @@ io.on('connection', (socket) => {
 
 });
 
-server.listen(PORT, () => console.log(`TheDigitalRoom is alive at http://localhost:${PORT}`));
+server.listen(PORT, () => {
+    console.log(`\n✓ TheDigitalRoom server running on port ${PORT}`);
+    console.log(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`✓ JWT_SECRET configured: ${JWT_SECRET ? 'YES' : 'NO'}`);
+    console.log(`✓ ADMIN_USER: ${ADMIN_USER}`);
+    console.log(`✓ Helmet.js security headers enabled`);
+    console.log(`✓ Rate limiting enabled`);
+    console.log(`\n🚀 Ready to accept connections!\n`);
+});
 
-process.on('uncaughtException', (err) => console.error('CRITICAL ERROR:', err));
-process.on('unhandledRejection', (err) => console.error('CRITICAL REJECTION:', err));
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL] Uncaught Exception:', err);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (err) => {
+    console.error('[FATAL] Unhandled Rejection:', err);
+    process.exit(1);
+});

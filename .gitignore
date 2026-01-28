@@ -11,6 +11,7 @@ data/
 .env
 .env.local
 
-# OS Files
-.DS_Store
-Thumbs.db
+# Security: Never commit hardcoded staff credentials
+staffData.js
+!staffData.example.js
+
