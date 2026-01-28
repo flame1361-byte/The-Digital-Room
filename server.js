@@ -100,7 +100,8 @@ function getUniqueUsers() {
 io.on('connection', (socket) => {
     socket.emit('init', {
         state: { ...roomState, users: getUniqueUsers(), serverTime: roomState.lastUpdateAt || Date.now() },
-        yourId: socket.id
+        yourId: socket.id,
+        serverNow: Date.now() // For clock skew compensation
     });
 
     socket.on('register', async ({ username, password }, callback) => {

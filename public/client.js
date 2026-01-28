@@ -135,6 +135,7 @@ let syncLock = false;
 let volume = 100; // Local volume state
 let isDraggingKnob = false;
 let lastY = 0;
+let serverTimeOffset = 0; // Local - Server time difference
 
 // --- Initialization ---
 
@@ -163,6 +164,13 @@ socket.on('disconnect', () => {
 });
 
 socket.on('init', (data) => {
+    // Calculate Clock Skew: Local = Server + Offset
+    // Offset = Local - Server
+    if (data.serverNow) {
+        serverTimeOffset = Date.now() - data.serverNow;
+        console.log('[TIME] Sync complete. Offset:', serverTimeOffset, 'ms');
+    }
+
     myId = data.yourId;
     currentRoomState = data.state;
     updateUI();
@@ -351,7 +359,7 @@ socket.on('djChanged', (data) => {
 socket.on('roomUpdate', (state) => {
     if (isDJ) return; // I am the source of truth
 
-    const latencyCompensation = state.serverTime ? (Date.now() - state.serverTime) : 0;
+    const latencyCompensation = state.serverTime ? ((Date.now() - serverTimeOffset) - state.serverTime) : 0;
 
     // Partial Patching
     // Partial Patching
@@ -1158,7 +1166,7 @@ function syncWithDJ(state) {
     syncLock = true;
 
     // Latency compensation: Calculate how old the update is
-    const packetAge = state.serverTime ? (Date.now() - state.serverTime) : 0;
+    const packetAge = state.serverTime ? ((Date.now() - serverTimeOffset) - state.serverTime) : 0;
     const targetPos = state.isPlaying ? (state.seekPosition + packetAge) : state.seekPosition;
 
     widget.getCurrentSound((sound) => {
