@@ -1546,12 +1546,12 @@ window.onStreamsUpdate = (activeStreams) => {
     currentRoomState.activeStreams = activeStreams || [];
     if (streamCountBadge) streamCountBadge.textContent = `${currentRoomState.activeStreams.length}/10`;
 
-    // Toggle overall viewport
-    const hasStreamsWatcherIsWatching = Object.keys(streamManager.watchedStreams).length > 0;
+    // Toggle overall viewport - SHOW if anyone is live, OR if I am broadcasting
+    const hasActiveSignals = currentRoomState.activeStreams.length > 0;
     const isBroadcasting = streamManager.isStreaming;
 
     if (streamViewport) {
-        streamViewport.style.display = (hasStreamsWatcherIsWatching || isBroadcasting) ? 'block' : 'none';
+        streamViewport.style.display = (hasActiveSignals || isBroadcasting) ? 'block' : 'none';
     }
 
     // Populate Stream Directory
