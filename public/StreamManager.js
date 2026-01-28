@@ -75,7 +75,7 @@ class StreamManager {
                 video: {
                     width: { ideal: 1920, max: 1920 },
                     height: { ideal: 1080, max: 1080 },
-                    frameRate: { min: targetFPS, ideal: targetFPS, max: targetFPS }
+                    frameRate: { ideal: targetFPS, max: targetFPS }
                 },
                 audio: {
                     echoCancellation: true,
