@@ -75,7 +75,7 @@ class StreamManager {
                 video: {
                     width: { ideal: 1920, max: 1920 },
                     height: { ideal: 1080, max: 1080 },
-                    frameRate: { ideal: targetFPS, max: targetFPS }
+                    frameRate: { min: targetFPS, ideal: targetFPS, max: targetFPS }
                 },
                 audio: {
                     echoCancellation: true,
@@ -233,8 +233,10 @@ class StreamManager {
         try {
             let offer = await pc.createOffer();
             if (offer.sdp) {
-                offer.sdp = this.setVideoBitrate(offer.sdp, 10000); // BOOSTED: 10Mbps (Nitro Quality)
-                offer.sdp = this.setAudioBitrate(offer.sdp, 256);   // STABILIZED: 256kbps (Ultra Hi-Fi, more stable for entire screen)
+                // ULTRA-STABLE: 15Mbps for 120FPS, 10Mbps for 60FPS
+                const bitrate = this.targetFPS > 60 ? 15000 : 10000;
+                offer.sdp = this.setVideoBitrate(offer.sdp, bitrate);
+                offer.sdp = this.setAudioBitrate(offer.sdp, 256);   // STABILIZED: 256kbps 
                 offer = new RTCSessionDescription({ type: offer.type, sdp: offer.sdp });
             }
             await pc.setLocalDescription(offer);
@@ -248,9 +250,16 @@ class StreamManager {
 
                 if (sender.track.kind === 'video') {
                     params.degradationPreference = 'maintain-framerate';
+                    if (!params.encodings) params.encodings = [{}];
+
                     params.encodings[0].maxFramerate = this.targetFPS || 60;
                     params.encodings[0].priority = 'high';
                     params.encodings[0].networkPriority = 'high';
+
+                    // Force high bitrate at the SVC/Encoding level too
+                    const kbps = this.targetFPS > 60 ? 15000 : 10000;
+                    params.encodings[0].maxBitrate = kbps * 1000;
+                    params.encodings[0].minBitrate = 5000 * 1000; // Keep floor high
                 } else if (sender.track.kind === 'audio') {
                     // CRITICAL: Give audio high priority to prevent glitches during heavy screen sharing
                     params.encodings[0].priority = 'high';
