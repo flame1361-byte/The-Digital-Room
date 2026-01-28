@@ -341,7 +341,7 @@ socket.on('djChanged', (data) => {
 socket.on('roomUpdate', (state) => {
     if (isDJ) return; // I am the source of truth
 
-    const latencyCompensation = state.serverTime ? (Date.now() - state.serverTime) / 1000 : 0;
+    const latencyCompensation = state.serverTime ? (Date.now() - state.serverTime) : 0;
 
     // Partial Patching
     // Partial Patching
