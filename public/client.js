@@ -344,6 +344,8 @@ socket.on('roomUpdate', (state) => {
     const latencyCompensation = state.serverTime ? (Date.now() - state.serverTime) / 1000 : 0;
 
     // Partial Patching
+    // Partial Patching
+    console.log('[DEBUG] Received roomUpdate:', state);
     currentRoomState.currentTrack = state.currentTrack;
     currentRoomState.isPlaying = state.isPlaying;
     currentRoomState.seekPosition = state.seekPosition + (state.isPlaying ? latencyCompensation : 0);
@@ -1153,6 +1155,7 @@ function syncWithDJ(state) {
         const soundUrl = sound ? sound.permalink_url : null;
 
         if (soundUrl !== state.currentTrack) {
+            console.log('[SYNC] Track mismatch. Loading new track:', state.currentTrack);
             widget.load(state.currentTrack, {
                 auto_play: state.isPlaying,
                 callback: () => {
