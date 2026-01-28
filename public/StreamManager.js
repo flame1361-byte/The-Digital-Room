@@ -79,8 +79,9 @@ class StreamManager {
                 },
                 audio: {
                     echoCancellation: true,
-                    noiseSuppression: false,
-                    autoGainControl: false,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    suppressLocalAudioPlayback: true, // CRITICAL: Prevents feedback loops during entire screen share
                     channelCount: 2
                 }
             };
@@ -100,6 +101,14 @@ class StreamManager {
             this.targetFPS = targetFPS; // Store for initiateCall
             this.socket.emit('stream-start');
 
+            // BROADCASTER DUCKING: Mute local SoundCloud to prevent capturing it back
+            if (window.widget) {
+                window.widget.setVolume(1); // Set to 1% instead of 0 for widget stability
+                if (window.addSystemMessage) {
+                    window.addSystemMessage("🔇 BROADCASTER MODE: Music ducked locally to prevent feedback.");
+                }
+            }
+
             this.localStream.getVideoTracks()[0].onended = () => this.stopShare();
 
             if (window.onLocalStream) window.onLocalStream(this.localStream);
@@ -118,6 +127,12 @@ class StreamManager {
             this.localStream.getTracks().forEach(track => track.stop());
             this.localStream = null;
         }
+
+        // RESTORE VOLUME: Return to user's preferred volume
+        if (window.widget) {
+            window.widget.setVolume(window.volume || 50);
+        }
+
         Object.keys(this.broadcasterPeers).forEach(id => {
             this.broadcasterPeers[id].close();
             delete this.broadcasterPeers[id];
