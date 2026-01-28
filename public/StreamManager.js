@@ -90,7 +90,10 @@ class StreamManager {
             const videoTrack = this.localStream.getVideoTracks()[0];
             if (videoTrack) {
                 await videoTrack.applyConstraints({ frameRate: { ideal: targetFPS } }).catch(() => { });
-                if ('contentHint' in videoTrack) videoTrack.contentHint = 'detail';
+                // Optimization: Use 'motion' for high FPS to prioritize fluidity, 'detail' for standard
+                if ('contentHint' in videoTrack) {
+                    videoTrack.contentHint = targetFPS > 60 ? 'motion' : 'detail';
+                }
             }
 
             this.isStreaming = true;
@@ -211,7 +214,13 @@ class StreamManager {
                 if (sender.track && sender.track.kind === 'video') {
                     const params = sender.getParameters();
                     if (!params.encodings) params.encodings = [{}];
+
+                    // PERFORMANCE BOOST: Prioritize framerate over resolution for 120FPS
+                    params.degradationPreference = 'maintain-framerate';
                     params.encodings[0].maxFramerate = this.targetFPS || 60;
+                    params.encodings[0].priority = 'high';
+                    params.encodings[0].networkPriority = 'high';
+
                     sender.setParameters(params).catch(() => { });
                 }
             });
