@@ -1162,6 +1162,11 @@ function syncWithDJ(state) {
                     widget.seekTo(targetPos);
                     widget.setVolume(volume); // Maintain local volume
                     currentTrackLabel.textContent = state.currentTrack;
+
+                    if (state.isPlaying) {
+                        console.log('[SYNC] Forcing playback start...');
+                        widget.play();
+                    }
                     syncLock = false;
                 }
             });
