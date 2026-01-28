@@ -1196,50 +1196,102 @@ function emitDJUpdate() {
     });
 }
 
+// --- V2.0 SYNC ENGINE (Perfect Sync) ---
+
 function syncWithDJ(state) {
-    if (syncLock || !state.currentTrack || !widget) return;
-    syncLock = true;
+    if (isDJ || !widget) return;
+    if (!state.currentTrack) return;
 
-    const serverNow = Date.now() - serverTimeOffset;
-    const targetPos = state.isPlaying ? (serverNow - state.startedAt) : state.pausedAt;
-
+    // Ensure track is loaded
     widget.getCurrentSound((sound) => {
-        const soundUrl = sound ? sound.permalink_url : null;
-
-        if (soundUrl !== state.currentTrack) {
+        if (!sound || sound.permalink_url !== state.currentTrack) {
+            console.log('[SYNC] Loading new track:', state.currentTrack);
             widget.load(state.currentTrack, {
                 auto_play: state.isPlaying,
                 callback: () => {
                     widget.setVolume(volume);
-                    if (state.isPlaying) {
-                        widget.seekTo(targetPos);
-                        widget.play();
-                        setTimeout(() => checkAutoplay(state.isPlaying), 1000);
-                    }
-                    syncLock = false;
+                    performPrecisionSeek(state);
                 }
             });
         } else {
-            widget.isPaused((paused) => {
-                if (state.isPlaying && paused) {
-                    widget.play();
-                    setTimeout(() => checkAutoplay(true), 1000);
-                } else if (!state.isPlaying && !paused) {
-                    widget.pause();
-                }
+            // Track match, just sync state
+            performPrecisionSeek(state);
+        }
+    });
 
-                widget.getPosition((currentPos) => {
-                    const drift = Math.abs(currentPos - targetPos);
-                    if (state.isPlaying && drift > 1500) {
-                        widget.seekTo(targetPos);
-                    }
-                    syncLock = false;
-                });
+    // Update UI
+    if (currentTrackLabel) currentTrackLabel.textContent = state.trackTitle || 'Unknown Track';
+    if (currentDjLabel) currentDjLabel.textContent = state.djUsername || 'Auto-DJ';
+
+    // Update V2.0 Timer
+    const timerDisplay = document.getElementById('timer-display');
+    if (timerDisplay) timerDisplay.textContent = state.isPlaying ? 'PLAYING' : 'PAUSED';
+}
+
+function performPrecisionSeek(state) {
+    if (!widget || isDJ) return;
+
+    widget.isPaused((isPaused) => {
+        // 1. Handle Play/Pause State
+        if (state.isPlaying && isPaused) {
+            console.log('[SYNC] Resuming playback...');
+            widget.play();
+        } else if (!state.isPlaying && !isPaused) {
+            console.log('[SYNC] Pausing playback...');
+            widget.pause();
+        }
+
+        // 2. Calculate Exact Target Position (The "Truth")
+        // Target = (LocalTime - Offset) - StartedAt
+        // Note: serverTimeOffset = Local - Server. So Server = Local - Offset.
+        const now = Date.now();
+        
+        // Validate serverTimeOffset is a finite number
+        const validatedOffset = Number.isFinite(serverTimeOffset) ? serverTimeOffset : 0;
+        const serverNow = now - validatedOffset;
+        let targetPos = 0;
+
+        if (state.isPlaying) {
+            // Guard against undefined/null state.startedAt
+            const startedAt = Number.isFinite(state.startedAt) ? state.startedAt : 0;
+            targetPos = serverNow - startedAt;
+        } else {
+            // Guard against undefined/null state.pausedAt
+            targetPos = Number.isFinite(state.pausedAt) ? state.pausedAt : 0;
+        }
+
+        // Validate and clamp to positive, ensuring targetPos is a finite number
+        targetPos = Math.max(0, Number(targetPos) || 0);
+
+        // 3. Measure Drift & Correct
+        // Only proceed if targetPos is a valid finite number
+        if (Number.isFinite(targetPos)) {
+            widget.getPosition((currentPos) => {
+                const drift = Math.abs(currentPos - targetPos);
+
+                // Correction Thresholds
+                if (drift > 2000) {
+                    console.log(`[SYNC] HARD SEEK: Drift ${drift}ms > 2000ms. Seeking to ${targetPos}ms`);
+                    widget.seekTo(targetPos);
+                } else if (drift > 500) {
+                    console.log(`[SYNC] SOFT SEEK: Drift ${drift}ms. Nudging...`);
+                    // For SC Widget, we can't change speed, so we just do a small seek
+                    widget.seekTo(targetPos);
+                }
             });
+        } else {
+            console.warn('[SYNC] Invalid targetPos calculated:', targetPos);
         }
     });
 }
 
+
+// Global Sync Loop (Runs every 1s to keep check)
+setInterval(() => {
+    if (!isDJ && currentUser && currentRoomState && currentRoomState.currentTrack) {
+        performPrecisionSeek(currentRoomState);
+    }
+}, 1000);
 
 function checkAutoplay(shouldBePlaying) {
     widget.isPaused((paused) => {
