@@ -1689,7 +1689,7 @@ window.onRemoteStream = (stream, streamerId) => {
                 </div>
             </div>
             <div class="video-container">
-                <video autoplay playsinline></video>
+                <video autoplay playsinline ${streamerId === myId ? 'muted' : ''}></video>
             </div>
             <div class="stream-card-footer">
                  <div class="stream-vol-ctrl">
