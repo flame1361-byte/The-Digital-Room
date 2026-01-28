@@ -35,6 +35,7 @@ const knobIndicator = document.querySelector('.knob-indicator');
 const volumePct = document.getElementById('volume-pct');
 const currentTrackLabel = document.getElementById('current-track-name');
 const currentDjLabel = document.getElementById('current-dj-name');
+const audioUnlockOverlay = document.getElementById('audio-unlock-overlay');
 
 // Theme Engine Elements
 const themesGrid = document.getElementById('themes-grid-modal');
@@ -143,6 +144,15 @@ socket.on('connect', () => {
         connStatus.style.color = '#00ff00';
     }
     console.log('Connected to server');
+
+    // Setup Audio Unlock Interaction
+    if (audioUnlockOverlay) {
+        audioUnlockOverlay.onclick = () => {
+            console.log('[AUDIO] User interaction captured. Unlocking...');
+            widget.play();
+            audioUnlockOverlay.style.display = 'none';
+        };
+    }
 });
 
 socket.on('disconnect', () => {
@@ -1166,6 +1176,16 @@ function syncWithDJ(state) {
                     if (state.isPlaying) {
                         console.log('[SYNC] Forcing playback start...');
                         widget.play();
+
+                        // Check if blocked
+                        setTimeout(() => {
+                            widget.isPaused(paused => {
+                                if (paused && state.isPlaying) {
+                                    console.warn('[AUDIO] Autoplay blocked. Showing unlock overlay.');
+                                    if (audioUnlockOverlay) audioUnlockOverlay.style.display = 'flex';
+                                }
+                            });
+                        }, 500);
                     }
                     syncLock = false;
                 }
