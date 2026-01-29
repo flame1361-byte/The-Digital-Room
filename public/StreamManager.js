@@ -204,8 +204,8 @@ class StreamManager {
         try {
             let offer = await pc.createOffer();
             if (offer.sdp) {
-                offer.sdp = this.setVideoBitrate(offer.sdp, 6000); // 6Mbps - Balanced High Fidelity
-                offer.sdp = this.setAudioBitrate(offer.sdp, 320);  // 320kbps - Industry Standard Hi-Fi
+                offer.sdp = this.setVideoBitrate(offer.sdp, 6000); // Balanced for stability
+                offer.sdp = this.setAudioBitrate(offer.sdp, 320);  // High-fidelity industry standard
                 offer = new RTCSessionDescription({ type: offer.type, sdp: offer.sdp });
             }
             await pc.setLocalDescription(offer);
@@ -262,6 +262,7 @@ class StreamManager {
         sdp = lines.join('\n');
         sdp = sdp.replace(/a=fmtp:(\d+) (.*)/g, (match, pt, params) => {
             if (params.indexOf('opus') !== -1 || sdp.indexOf('a=rtpmap:' + pt + ' opus/48000/2') !== -1) {
+                // minptime=10 reduce audio packetization delay from 20ms to 10ms for "live" feel
                 return `a=fmtp:${pt} ${params};stereo=1;sprop-stereo=1;maxaveragebitrate=320000;cbr=1;usedtx=0;minptime=10;maxptime=20`;
             }
             return match;
