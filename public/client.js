@@ -141,6 +141,9 @@ let lastY = 0;
 let serverTimeOffset = 0; // Local - Server time difference
 let isBuffering = false;   // Track SoundCloud buffering state
 
+const visualizer = new VisualizerManager();
+window.visualizer = visualizer;
+
 // --- Initialization ---
 
 socket.on('connect', () => {
@@ -156,6 +159,7 @@ socket.on('connect', () => {
         audioUnlockOverlay.onclick = () => {
             console.log('[AUDIO] User interaction captured. Unlocking...');
             widget.play();
+            visualizer.initAudioSync(); // Start 3D Visualizer Sync
             audioUnlockOverlay.style.display = 'none';
         };
     }

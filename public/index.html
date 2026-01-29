@@ -21,6 +21,8 @@
         <div style="font-size: 0.8rem; color: #aaa; margin-top: 10px;">(BROWSER RESTRICTION DETECTED)</div>
     </div>
 
+    <canvas id="visualizer-canvas"></canvas>
+
     <div id="app-container">
         <!-- Persistent Announcement -->
         <div id="announcement-banner" style="display: none;"></div>
@@ -477,8 +479,10 @@
     <!-- Socket.io and SoundCloud Widget API -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://w.soundcloud.com/player/api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="VoiceManager.js"></script>
     <script src="StreamManager.js"></script>
+    <script src="VisualizerManager.js"></script>
     <script src="client.js"></script>
 </body>
 
