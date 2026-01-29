@@ -3,11 +3,12 @@ class VisualizerManager {
         this.canvas = document.getElementById('visualizer-canvas');
         if (!this.canvas) return;
 
+        this.container = this.canvas.parentElement;
         this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera = new THREE.PerspectiveCamera(75, this.container.clientWidth / this.container.clientHeight, 0.1, 1000);
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
 
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
         this.camera.position.z = 5;
@@ -82,7 +83,7 @@ class VisualizerManager {
                 void main() {
                     float dist = distance(vUv, vec2(0.5));
                     vec3 color = uColor * (vDisplacement + 0.5);
-                    gl_FragColor = vec4(color, 0.6);
+                    gl_FragColor = vec4(color, 1.0);
                 }
             `,
             transparent: true,
@@ -120,16 +121,18 @@ class VisualizerManager {
     }
 
     onResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
+        if (!this.container) return;
+        this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
         this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
     }
 
     randomize() {
         this.material.uniforms.uColor.value.setHex(Math.random() * 0xffffff);
         this.mesh.rotation.x = Math.random() * Math.PI;
         this.mesh.rotation.y = Math.random() * Math.PI;
-        console.log('[VISUALIZER] Randomized colors and orientation.');
+        this.material.wireframe = Math.random() > 0.5;
+        console.log('[VISUALIZER] Randomized colors, geometry, and wireframe mode.');
     }
 
     animate() {

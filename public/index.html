@@ -21,8 +21,6 @@
         <div style="font-size: 0.8rem; color: #aaa; margin-top: 10px;">(BROWSER RESTRICTION DETECTED)</div>
     </div>
 
-    <canvas id="visualizer-canvas"></canvas>
-
     <div id="app-container">
         <!-- Persistent Announcement -->
         <div id="announcement-banner" style="display: none;"></div>
@@ -117,6 +115,17 @@
 
             <!-- Main Panel: Player and Chat -->
             <section id="center-panel">
+                <!-- 3D Milk Drop Visualizer Window -->
+                <div id="visualizer-window">
+                    <div class="box-header">3D MILK DROP VISUALIZER <span
+                            style="font-size: 0.5rem; color: #fff; cursor: help;" title="PRESS 'R' TO RANDOMIZE">(PRESS
+                            'R' TO RANDOMIZE)</span></div>
+                    <div id="visualizer-container"
+                        style="height: 250px; background: #000; border: 1px solid var(--border-color); position: relative; overflow: hidden;">
+                        <canvas id="visualizer-canvas"></canvas>
+                    </div>
+                </div>
+
                 <div id="stream-viewport" style="display: none; margin-bottom: 20px;">
                     <div class="box-header" style="background: #ff0055; color: #fff;">ACTIVE BROADCASTS <span
                             id="stream-count-badge"
