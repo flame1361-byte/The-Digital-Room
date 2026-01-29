@@ -139,7 +139,11 @@ class StreamManager {
     createBroadcasterPeerConnection(peerId) {
         console.log('[STREAM] Creating Broadcaster PC for:', peerId);
         const pc = new RTCPeerConnection({
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
         });
 
         pc.onicecandidate = (event) => {
