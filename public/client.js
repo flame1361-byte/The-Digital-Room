@@ -264,8 +264,8 @@ socket.on('authSuccess', (userData) => {
 
     const staffUsers = ['mayne', 'kaid', 'mummy'];
     if (staffUsers.includes(currentUser.username)) {
-        const eliteGroup = document.getElementById('elite-skins-group');
-        if (eliteGroup) eliteGroup.style.display = 'block';
+        const staffGroup = document.getElementById('staff-skins-group');
+        if (staffGroup) staffGroup.style.display = 'block';
         if (currentUser.username === 'mayne') {
             if (tabAdminBtn) tabAdminBtn.style.display = 'block';
         }
