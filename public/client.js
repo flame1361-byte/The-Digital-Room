@@ -1183,7 +1183,16 @@ function syncWithDJ(state) {
     if (syncLock || !state.currentTrack || !widget) return;
     syncLock = true;
 
-    const serverNow = Date.now() - serverTimeOffset;
+    // Safety Timeout: Prevent syncLock from hanging the player
+    const syncTimeout = setTimeout(() => {
+        if (syncLock) {
+            console.warn('[SYNC] Safety timeout triggered. Releasing lock.');
+            syncLock = false;
+        }
+    }, 5000);
+
+    // Precision Sync: serverNow = LocalTime + (Server - Local)
+    const serverNow = Date.now() + serverTimeOffset;
     const targetPos = state.isPlaying ? (serverNow - state.startedAt) : state.pausedAt;
 
     widget.getCurrentSound((sound) => {
@@ -1200,6 +1209,7 @@ function syncWithDJ(state) {
                         setTimeout(() => checkAutoplay(state.isPlaying), 1000);
                     }
                     syncLock = false;
+                    clearTimeout(syncTimeout);
                 }
             });
         } else {
@@ -1218,6 +1228,7 @@ function syncWithDJ(state) {
                         widget.seekTo(targetPos);
                     }
                     syncLock = false;
+                    clearTimeout(syncTimeout);
                 });
             });
         }

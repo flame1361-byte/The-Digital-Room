@@ -743,8 +743,12 @@ button:active {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    background: rgba(0, 0, 0, 0.3);
     background-image: linear-gradient(0deg, transparent 24%, rgba(0, 255, 0, .05) 25%, rgba(0, 255, 0, .05) 26%, transparent 27%, transparent 74%, rgba(0, 255, 0, .05) 75%, rgba(0, 255, 0, .05) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(0, 255, 0, .05) 25%, rgba(0, 255, 0, .05) 26%, transparent 27%, transparent 74%, rgba(0, 255, 0, .05) 75%, rgba(0, 255, 0, .05) 76%, transparent 77%, transparent);
     background-size: 30px 30px;
+    /* GPU Acceleration for smooth scrolling */
+    transform: translateZ(0);
+    will-change: scroll-position, transform;
 }
 
 .dm-msg {
@@ -1323,6 +1327,9 @@ button:active {
     background: black;
     font-size: 0.9rem;
     border-bottom: 1px solid var(--accent-color);
+    /* GPU Acceleration for silky smooth scrolling */
+    transform: translateZ(0);
+    will-change: scroll-position, transform;
 }
 
 .msg {
@@ -1846,7 +1853,11 @@ footer {
     vertical-align: middle;
 }
 
-
+/* Hardware acceleration for streams grid */
+#streams-grid {
+    transform: translateZ(0);
+    will-change: transform, contents;
+}
 
 /* --- 1440p Screen Share Theater Mode --- */
 #stream-viewport {
