@@ -117,6 +117,10 @@ io.on('connection', (socket) => {
         serverNow: Date.now() // For clock skew compensation
     });
 
+    socket.on('syncTime', (sentTime, callback) => {
+        callback?.(Date.now());
+    });
+
     socket.on('register', async ({ username, password }, callback) => {
         try {
             if (!username || !password) return callback?.({ error: 'Required' });

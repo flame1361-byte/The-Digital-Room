@@ -139,6 +139,7 @@ let volume = parseInt(localStorage.getItem('droom_volume')) || 100; // Persisted
 let isDraggingKnob = false;
 let lastY = 0;
 let serverTimeOffset = 0; // Local - Server time difference
+let isBuffering = false;   // Track SoundCloud buffering state
 
 // --- Initialization ---
 
@@ -148,6 +149,7 @@ socket.on('connect', () => {
         connStatus.style.color = '#00ff00';
     }
     console.log('Connected to server');
+    performTimeSync(); // Start high-precision sync
 
     // Setup Audio Unlock Interaction
     if (audioUnlockOverlay) {
@@ -158,6 +160,27 @@ socket.on('connect', () => {
         };
     }
 });
+
+// NTP-style clock synchronization
+async function performTimeSync() {
+    let offsets = [];
+    for (let i = 0; i < 5; i++) {
+        const start = Date.now();
+        const serverTime = await new Promise(resolve => socket.emit('syncTime', start, resolve));
+        const end = Date.now();
+        const rtt = end - start;
+        const offset = (serverTime + rtt / 2) - end;
+        offsets.push(offset);
+        // Wait a small delay between samples
+        await new Promise(r => setTimeout(r, 200));
+    }
+    // Simple average of offsets
+    serverTimeOffset = offsets.reduce((a, b) => a + b, 0) / offsets.length;
+    console.log('[TIME] High-precision sync complete. Offset:', serverTimeOffset.toFixed(2), 'ms');
+}
+
+// Keep clock synced every 60s
+setInterval(performTimeSync, 60000);
 
 socket.on('disconnect', () => {
     if (connStatus) {
@@ -989,7 +1012,7 @@ function renderFriendsLists(friends, pending) {
             topFriendsGrid.innerHTML = friends.length ? '' : '<div style="grid-column: span 3; text-align: center; font-size: 0.6rem; color: #666; padding: 10px;">ADD FRIENDS IN SETTINGS</div>';
             friends.slice(0, 9).forEach(f => {
                 const name = typeof f === 'string' ? f : (f.username || 'Unknown');
-                const badge = typeof f === 'string' ? 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif' : (f.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif');
+                const badge = typeof f === 'string' ? 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif' : (f.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L88y6SAsjGvNmsC4Eq/giphy.gif');
                 const style = typeof f === 'string' ? '' : (f.nameStyle || '');
 
                 const div = document.createElement('div');
@@ -1190,7 +1213,8 @@ function syncWithDJ(state) {
 
                 widget.getPosition((currentPos) => {
                     const drift = Math.abs(currentPos - targetPos);
-                    if (state.isPlaying && drift > 1500) {
+                    // Flawless Sync: Tighten threshold to 750ms and ignore while buffering
+                    if (state.isPlaying && drift > 750 && !isBuffering) {
                         widget.seekTo(targetPos);
                     }
                     syncLock = false;
@@ -1250,11 +1274,22 @@ widget.bind(SC.Widget.Events.READY, () => {
         }
     });
 
+    // Buffering Awareness: Prevent jitter during network dips
+    widget.bind(SC.Widget.Events.LOAD_PROGRESS, (progress) => {
+        // If relativeLoad is small, we might be buffering
+        if (progress.relativeLoad < 0.01) isBuffering = true;
+        else isBuffering = false;
+    });
+
+    widget.bind(SC.Widget.Events.PLAY_PROGRESS, () => {
+        isBuffering = false;
+    });
+
     widget.bind(SC.Widget.Events.SEEK, () => {
         if (isDJ) {
             emitDJUpdate();
         } else {
-            // Bulletproof Enforcement: If listener tries to seek, snap them back to DJ
+            // Enforcement: listener MUST stay synced
             syncWithDJ(currentRoomState);
         }
     });
