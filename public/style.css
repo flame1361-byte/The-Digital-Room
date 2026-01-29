@@ -24,6 +24,9 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    /* GPU Dream Hardware Acceleration */
+    transform: translateZ(0);
+    will-change: transform;
 }
 
 header {
