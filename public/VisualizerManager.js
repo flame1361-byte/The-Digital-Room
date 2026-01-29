@@ -51,43 +51,74 @@ class VisualizerManager {
                 uniform float uRandomSeed;
                 varying vec2 vUv;
 
+                // --- Simplex Noise Helper ---
+                vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+                vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+                vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+                float snoise(vec2 v) {
+                    const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+                    vec2 i  = floor(v + dot(v, C.yy) );
+                    vec2 x0 = v -   i + dot(i, C.xx);
+                    vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+                    vec4 x12 = x0.xyxy + C.xxzz;
+                    x12.xy -= i1;
+                    i = mod289(i);
+                    vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
+                    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+                    m = m*m ; m = m*m ;
+                    vec3 x = 2.0 * fract(p * C.www) - 1.0;
+                    vec3 h = abs(x) - 0.5;
+                    vec3 ox = floor(x + 0.5);
+                    vec3 a0 = x - ox;
+                    m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+                    vec3 g;
+                    g.x  = a0.x  * x0.x  + h.x  * x0.y;
+                    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+                    return 130.0 * dot(m, g);
+                }
+
                 void main() {
                     vec2 uv = vUv;
-                    
-                    // --- MilkDrop Warp Equations ---
                     vec2 centeredUv = uv - 0.5;
                     float dist = length(centeredUv);
                     float angle = atan(centeredUv.y, centeredUv.x);
 
-                    // Zoom driven by Bass
-                    float zoom = 1.0 - (uBass * 0.05 + 0.01);
+                    // --- MilkDrop Warp Equations (v1.1 Elite) ---
+                    float noise = snoise(uv * 3.0 + uTime * 0.1) * 0.1 * uMid;
+                    float zoom = 1.0 - (uBass * 0.04 + 0.01 + noise);
+                    float rot = uTreble * 0.05 * sin(uTime * 0.2 + uRandomSeed * 6.28);
                     
-                    // Rotation driven by Treble
-                    float rot = uTreble * 0.02 * sin(uTime * 0.5);
-                    
-                    // Polar Warp
                     float r = dist * zoom;
-                    float a = angle + rot + (sin(dist * 10.0 - uTime) * uMid * 0.05);
+                    float a = angle + rot + (sin(dist * 15.0 - uTime) * uMid * 0.08);
                     
                     vec2 warpedUv = vec2(cos(a), sin(a)) * r + 0.5;
                     
-                    // Edge Bleed / Fade
-                    vec4 prevFrame = texture2D(uTexture, warpedUv);
+                    // --- Chromatic Aberration in Feedback ---
+                    float shift = 0.002 + (uTreble * 0.005);
+                    vec4 prevR = texture2D(uTexture, warpedUv + vec2(shift, 0.0));
+                    vec4 prevG = texture2D(uTexture, warpedUv);
+                    vec4 prevB = texture2D(uTexture, warpedUv - vec2(shift, 0.0));
                     
-                    // Procedural Color Injection
-                    float beam = smoothstep(0.01, 0.0, abs(sin(uv.x * 20.0 + uTime) * 0.1 - centeredUv.y));
-                    vec3 newColor = vec3(0.0);
-                    if(uBass > 0.5) {
-                        newColor += vec3(uBass * 0.5, 0.0, uBass) * beam;
+                    // --- Procedural Color Injection ---
+                    float beam = smoothstep(0.02, 0.0, abs(sin(uv.x * 12.0 + uTime * 0.5) * 0.15 - centeredUv.y));
+                    vec3 baseColor = vec3(0.01, 0.002, 0.03) * (sin(uTime * 0.5) * 0.5 + 0.5);
+                    
+                    // Audio Peaks
+                    vec3 peakColor = vec3(0.0);
+                    if(uBass > 0.15) {
+                        float hue = fract(uTime * 0.1 + uRandomSeed);
+                        vec3 rainbow = 0.5 + 0.5 * cos(6.28 * (hue + vec3(0,0.33,0.67)));
+                        peakColor += rainbow * uBass * beam * 2.5;
                     }
                     
-                    // Decay & Blend
-                    vec3 finalColor = prevFrame.rgb * 0.96 + newColor * 0.4;
+                    // Decay & Blend (Elite Tuning)
+                    vec3 prevFrame = vec3(prevR.r, prevG.g, prevB.b);
+                    vec3 finalColor = prevFrame * 0.985 + (baseColor * beam) + peakColor;
                     
-                    // Flash on heavy bass
-                    finalColor += vec3(uBass * 0.1);
+                    // Bass Impact Flash
+                    finalColor += vec3(uBass * uBass * 0.2);
 
-                    gl_FragColor = vec4(finalColor, 1.0);
+                    gl_FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0);
                 }
             `
         });
@@ -101,6 +132,9 @@ class VisualizerManager {
         });
 
         this.animate();
+
+        // Force an initial resize to ensure buffers are valid
+        setTimeout(() => this.onResize(), 100);
     }
 
     async initAudioSync() {
@@ -151,7 +185,9 @@ class VisualizerManager {
 
     randomize() {
         this.warpMaterial.uniforms.uRandomSeed.value = Math.random();
-        console.log('[MILKDROP] Preset Randomized.');
+        // Burst of time to jump patterns
+        this.warpMaterial.uniforms.uTime.value += Math.random() * 10.0;
+        console.log('[MILKDROP] Preset Randomized & Ignited.');
     }
 
     animate() {
