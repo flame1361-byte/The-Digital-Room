@@ -262,8 +262,13 @@ socket.on('authSuccess', (userData) => {
     if (themeEngine) themeEngine.style.display = 'block';
     if (themeBoxHeader) themeBoxHeader.style.display = 'block';
 
-    if (currentUser.username === 'mayne') {
-        if (tabAdminBtn) tabAdminBtn.style.display = 'block';
+    const staffUsers = ['mayne', 'kaid', 'mummy'];
+    if (staffUsers.includes(currentUser.username)) {
+        const eliteGroup = document.getElementById('elite-skins-group');
+        if (eliteGroup) eliteGroup.style.display = 'block';
+        if (currentUser.username === 'mayne') {
+            if (tabAdminBtn) tabAdminBtn.style.display = 'block';
+        }
     }
 
     // Update local guest name to be the real name
