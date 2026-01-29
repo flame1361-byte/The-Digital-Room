@@ -557,6 +557,162 @@ button:active {
     animation: fire-flicker 0.1s infinite alternate;
 }
 
+/* --- THE ELITE 25 SKINS --- */
+[class^="name-"] {
+    display: inline-block;
+    transform: translateZ(0);
+    will-change: transform, text-shadow, filter;
+    backface-visibility: hidden;
+}
+
+.name-supernova {
+    animation: nova-pulse 2s ease-in-out infinite;
+    font-weight: 900;
+    color: #fff;
+}
+
+.name-glitch-hacker {
+    animation: hacker-jitter 0.15s infinite;
+    font-weight: bold;
+    color: #00ff00;
+    font-family: 'Courier Prime', monospace;
+}
+
+.name-lava-lamp {
+    animation: lava-flow 4s ease-in-out infinite;
+    font-weight: bold;
+}
+
+.name-nebula-vibe {
+    animation: nebula-swirl 10s linear infinite;
+    font-weight: 900;
+    color: #fff;
+}
+
+.name-hologram {
+    animation: holo-flicker 4s infinite;
+    color: #00ffff;
+    text-shadow: 0 0 10px #00ffff;
+}
+
+.name-golden-god {
+    background: linear-gradient(90deg, #ffd700, #fff, #ffd700);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shine-wipe 3s linear infinite;
+    font-weight: 900;
+}
+
+.name-cyber-pulse {
+    animation: cyber-strobe 0.5s step-end infinite;
+    font-weight: bold;
+}
+
+.name-frozen-soul {
+    animation: frost-shiver 3s ease-in-out infinite;
+    color: #e0ffff;
+}
+
+.name-toxic-waste {
+    animation: toxic-drip 2s ease-in-out infinite;
+    color: #32cd32;
+    font-weight: 900;
+}
+
+.name-blood-diamond {
+    animation: crystal-glint 1.5s ease-in-out infinite;
+    color: #8b0000;
+    font-weight: 900;
+}
+
+.name-stealth-shadow {
+    animation: shadow-smoke 5s ease-in-out infinite;
+    color: #111;
+    font-weight: bold;
+}
+
+.name-electric-storm {
+    animation: storm-bolt 5s linear infinite;
+    font-weight: bold;
+}
+
+.name-plasma-ball {
+    animation: plasma-arc 2s linear infinite;
+    color: #fff;
+}
+
+.name-forest-guardian {
+    animation: forest-pulse 3s ease-in-out infinite;
+    font-weight: bold;
+}
+
+.name-vampire-count {
+    animation: vampire-aura 2s ease-in-out infinite;
+    color: #000;
+    font-weight: 900;
+}
+
+.name-retro-tv {
+    animation: tv-static 0.2s infinite;
+    color: #fff;
+    font-weight: bold;
+}
+
+.name-cosmic-void {
+    animation: void-sparkle 3s ease-in-out infinite;
+    font-weight: 900;
+}
+
+.name-heartbeat {
+    animation: heart-beat 1.5s ease-in-out infinite;
+    color: #ff0000;
+    font-weight: 900;
+}
+
+.name-emerald-shard {
+    animation: emerald-shine 4s ease-in-out infinite;
+    color: #50c878;
+    font-weight: 900;
+}
+
+.name-ruby-rush {
+    animation: ruby-blur 1s ease-in-out infinite;
+    color: #e0115f;
+    font-weight: bold;
+}
+
+.name-safari-wild {
+    background: url('https://www.transparenttextures.com/patterns/animal-prints.png'), linear-gradient(45deg, #8b4513, #f5deb3);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: safari-bg 10s linear infinite;
+    font-weight: 900;
+}
+
+.name-underwater {
+    animation: water-wave 3s ease-in-out infinite;
+    color: #00ffff;
+}
+
+.name-sandstorm {
+    animation: sand-drift 2s linear infinite;
+    color: #f4a460;
+    font-weight: bold;
+}
+
+.name-voodoo-magic {
+    animation: voodoo-sway 2s ease-in-out infinite;
+    font-weight: bold;
+}
+
+.name-white-gold {
+    animation: luxe-outline 2s ease-in-out infinite;
+    font-weight: 900;
+}
+
 /* Premium Animations */
 .name-gold {
     background: linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #fcf6ba, #bf953f);
@@ -1172,6 +1328,389 @@ button:active {
 
     100% {
         text-shadow: 0 0 8px #ffcc00, 0 -4px 15px #ff6600;
+    }
+}
+
+/* --- THE ELITE 25 KEYFRAMES --- */
+@keyframes nova-pulse {
+
+    0%,
+    100% {
+        text-shadow: 0 0 10px #fff, 0 0 20px #ffd700;
+        transform: scale(1) translateZ(0);
+    }
+
+    50% {
+        text-shadow: 0 0 30px #fff, 0 0 50px #ffd700, 0 0 70px #ff4500;
+        transform: scale(1.1) translateZ(0);
+    }
+}
+
+@keyframes hacker-jitter {
+    0% {
+        transform: translate(0) translateZ(0);
+        text-shadow: 2px 0 #00ffff, -2px 0 #ff0000;
+    }
+
+    20% {
+        transform: translate(-1px, 1px) translateZ(0);
+    }
+
+    40% {
+        transform: translate(1px, -1px) translateZ(0);
+        text-shadow: -2px 0 #00ffff, 2px 0 #ff0000;
+    }
+
+    60% {
+        transform: translate(-1px, -1px) translateZ(0);
+    }
+
+    80% {
+        transform: translate(1px, 1px) translateZ(0);
+    }
+
+    100% {
+        transform: translate(0) translateZ(0);
+    }
+}
+
+@keyframes lava-flow {
+
+    0%,
+    100% {
+        color: #ff4500;
+        text-shadow: 0 0 10px #8b0000;
+    }
+
+    50% {
+        color: #ff8c00;
+        text-shadow: 0 0 20px #ff4500, 0 0 30px #ff0000;
+    }
+}
+
+@keyframes nebula-swirl {
+    0% {
+        filter: hue-rotate(0deg);
+        text-shadow: 0 0 15px #9b30ff;
+    }
+
+    100% {
+        filter: hue-rotate(360deg);
+        text-shadow: 0 0 25px #00ffff;
+    }
+}
+
+@keyframes holo-flicker {
+
+    0%,
+    90%,
+    100% {
+        opacity: 1;
+        transform: skew(0deg) translateZ(0);
+    }
+
+    92% {
+        opacity: 0.5;
+        transform: skew(5deg) translateZ(0);
+    }
+
+    95% {
+        opacity: 0.8;
+        transform: skew(-5deg) translateZ(0);
+    }
+}
+
+@keyframes shine-wipe {
+    0% {
+        background-position: -200% center;
+    }
+
+    100% {
+        background-position: 200% center;
+    }
+}
+
+@keyframes cyber-strobe {
+
+    0%,
+    100% {
+        color: #39ff14;
+        text-shadow: 0 0 10px #39ff14;
+    }
+
+    50% {
+        color: #ff00ff;
+        text-shadow: 0 0 15px #ff00ff;
+    }
+}
+
+@keyframes frost-shiver {
+
+    0%,
+    100% {
+        transform: rotate(0deg) translateZ(0);
+        text-shadow: 0 0 5px #fff, 0 0 15px #00ffff;
+    }
+
+    25% {
+        transform: rotate(1deg) translateZ(0);
+    }
+
+    75% {
+        transform: rotate(-1deg) translateZ(0);
+    }
+}
+
+@keyframes toxic-drip {
+
+    0%,
+    100% {
+        text-shadow: 0 0 5px #32cd32, 0 5px 10px #006400;
+    }
+
+    50% {
+        text-shadow: 0 0 15px #7cfc00, 0 15px 25px #006400;
+    }
+}
+
+@keyframes crystal-glint {
+
+    0%,
+    100% {
+        filter: brightness(1) drop-shadow(0 0 5px #ff0000);
+    }
+
+    50% {
+        filter: brightness(1.8) drop-shadow(0 0 15px #ffffff);
+    }
+}
+
+@keyframes shadow-smoke {
+
+    0%,
+    100% {
+        opacity: 1;
+        text-shadow: 0 0 5px #333;
+    }
+
+    50% {
+        opacity: 0.6;
+        text-shadow: 0 0 20px #666, 10px -10px 30px #000;
+    }
+}
+
+@keyframes storm-bolt {
+
+    0%,
+    95%,
+    100% {
+        color: #add8e6;
+        text-shadow: 0 0 5px #0000ff;
+    }
+
+    97% {
+        color: #fff;
+        text-shadow: 0 0 30px #fff, 0 0 60px #00ffff;
+    }
+}
+
+@keyframes plasma-arc {
+
+    0%,
+    100% {
+        text-shadow: 0 0 10px #ff00ff, 0 0 20px #9400d3;
+    }
+
+    33% {
+        text-shadow: 2px -2px 15px #fff, 0 0 25px #ff00ff;
+    }
+
+    66% {
+        text-shadow: -2px 2px 15px #fff, 0 0 25px #9400d3;
+    }
+}
+
+@keyframes forest-pulse {
+
+    0%,
+    100% {
+        color: #228b22;
+        text-shadow: 0 0 5px #006400;
+    }
+
+    50% {
+        color: #32cd32;
+        text-shadow: 0 0 20px #7cfc00;
+    }
+}
+
+@keyframes vampire-aura {
+
+    0%,
+    100% {
+        text-shadow: 0 0 10px #ff0000, 0 0 20px #000;
+    }
+
+    50% {
+        text-shadow: 0 0 25px #ff0000, 0 0 40px #8b0000;
+    }
+}
+
+@keyframes tv-static {
+    0% {
+        text-shadow: 2px 2px #ff0000, -2px -2px #0000ff;
+    }
+
+    25% {
+        text-shadow: -2px 2px #ff0000, 2px -2px #0000ff;
+    }
+
+    50% {
+        text-shadow: 2px -2px #ff0000, -2px 2px #0000ff;
+    }
+
+    75% {
+        text-shadow: -2px -2px #ff0000, 2px 2px #0000ff;
+    }
+
+    100% {
+        text-shadow: 2px 2px #ff0000, -2px -2px #0000ff;
+    }
+}
+
+@keyframes void-sparkle {
+
+    0%,
+    100% {
+        color: #000;
+        text-shadow: 0 0 2px #fff;
+    }
+
+    50% {
+        color: #111;
+        text-shadow: 0 0 8px #fff, 0 0 15px #444;
+    }
+}
+
+@keyframes heart-beat {
+
+    0%,
+    100% {
+        transform: scale(1) translateZ(0);
+        text-shadow: 0 0 5px #ff0000;
+    }
+
+    15% {
+        transform: scale(1.15) translateZ(0);
+        text-shadow: 0 0 20px #ff0000;
+    }
+
+    30% {
+        transform: scale(1.05) translateZ(0);
+    }
+
+    45% {
+        transform: scale(1.15) translateZ(0);
+        text-shadow: 0 0 20px #ff0000;
+    }
+}
+
+@keyframes emerald-shine {
+    0% {
+        filter: hue-rotate(0deg) brightness(1);
+    }
+
+    50% {
+        filter: hue-rotate(20deg) brightness(1.5);
+    }
+
+    100% {
+        filter: hue-rotate(0deg) brightness(1);
+    }
+}
+
+@keyframes ruby-blur {
+
+    0%,
+    100% {
+        text-shadow: 0 0 5px #b03060;
+        transform: translateX(0) translateZ(0);
+    }
+
+    50% {
+        text-shadow: -5px 0 15px #ff0000, 5px 0 15px #ff0000;
+        transform: translateX(2px) translateZ(0);
+    }
+}
+
+@keyframes safari-bg {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes water-wave {
+
+    0%,
+    100% {
+        transform: translateY(0) skewX(0deg) translateZ(0);
+        text-shadow: 0 0 10px #00ffff;
+    }
+
+    50% {
+        transform: translateY(-2px) skewX(5deg) translateZ(0);
+        text-shadow: 0 5px 15px #00bfff;
+    }
+}
+
+@keyframes sand-drift {
+    0% {
+        text-shadow: 1px 1px 0px #d2b48c, 2px 2px 0px #8b4513;
+    }
+
+    50% {
+        text-shadow: -1px -1px 2px #d2b48c, -2px -2px 4px #8b4513;
+    }
+
+    100% {
+        text-shadow: 1px 1px 0px #d2b48c, 2px 2px 0px #8b4513;
+    }
+}
+
+@keyframes voodoo-sway {
+
+    0%,
+    100% {
+        transform: rotate(-2deg) translateZ(0);
+        color: #9400d3;
+    }
+
+    50% {
+        transform: rotate(2deg) translateZ(0);
+        color: #00ff00;
+        text-shadow: 0 0 20px #9400d3;
+    }
+}
+
+@keyframes luxe-outline {
+
+    0%,
+    100% {
+        text-shadow: 0 0 2px #ffd700;
+        color: #fff;
+    }
+
+    50% {
+        text-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700;
+        color: #fdfdfd;
     }
 }
 
