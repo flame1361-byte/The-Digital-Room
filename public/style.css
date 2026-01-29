@@ -138,9 +138,10 @@ main {
 }
 
 .box-header {
-    background: var(--border-color);
-    color: var(--panel-bg);
-    /* Use panel color for contrast against bright border/accents */
+    background: var(--header-gradient, var(--border-color));
+    color: #fff;
+    /* Maintain high-contrast text on dynamic gradients */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
     padding: 5px;
     font-weight: bold;
     font-size: 0.9rem;
@@ -1778,7 +1779,7 @@ button:active {
     text-align: center;
     padding: 5px;
     background: rgba(255, 255, 255, 0.05);
-    border: 1px solid #222;
+    border: 1px solid var(--border-color);
     transition: 0.2s;
 }
 
@@ -1791,8 +1792,9 @@ button:active {
     width: 40px;
     height: 40px;
     object-fit: cover;
-    border: 1px solid #555;
+    border: 1px solid var(--accent-color);
     margin-bottom: 3px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
 }
 
 .friend-item span {
