@@ -59,7 +59,8 @@ header h1 {
     margin: 5px 0;
     text-align: center;
     font-family: 'VT323', monospace;
-    font-size: 3rem;
+    font-size: clamp(1.8rem, 8vw, 3rem);
+    /* Responsive scaling */
     color: #fff;
     /* Constant high visibility */
     /* Multi-layered shadow: Black outline for legibility + Theme colors for vibe */

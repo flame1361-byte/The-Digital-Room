@@ -77,46 +77,67 @@ class VisualizerManager {
                     return 130.0 * dot(m, g);
                 }
 
+                // --- Procedural Generation Logic (20k+ states) ---
                 void main() {
                     vec2 uv = vUv;
                     vec2 centeredUv = uv - 0.5;
                     float dist = length(centeredUv);
                     float angle = atan(centeredUv.y, centeredUv.x);
+                    
+                    // Derive multiple procedural mode toggles from uRandomSeed
+                    float modeA = fract(uRandomSeed * 123.456); // Warp Type
+                    float modeB = fract(uRandomSeed * 789.012); // Color Math
+                    float modeC = fract(uRandomSeed * 345.678); // Iteration Scale
 
-                    // --- MilkDrop Warp Equations (v1.1 Elite) ---
-                    float noise = snoise(uv * 3.0 + uTime * 0.1) * 0.1 * uMid;
-                    float zoom = 1.0 - (uBass * 0.04 + 0.01 + noise);
-                    float rot = uTreble * 0.05 * sin(uTime * 0.2 + uRandomSeed * 6.28);
+                    // --- MilkDrop 3 Iterative Warp ---
+                    float noise = snoise(uv * (2.0 + modeC * 5.0) + uTime * 0.1) * 0.1 * uMid;
+                    float zoom = 1.0 - (uBass * (0.04 + modeC * 0.04) + 0.005 + noise);
+                    
+                    float rotBase = sin(uTime * 0.2 + uRandomSeed * 6.28);
+                    float rot = uTreble * (0.03 + modeA * 0.1) * rotBase;
                     
                     float r = dist * zoom;
-                    float a = angle + rot + (sin(dist * 15.0 - uTime) * uMid * 0.08);
+                    float a = angle + rot;
+                    
+                    // Procedural Warp Selection
+                    if (modeA > 0.6) {
+                        a += (sin(dist * (10.0 + modeB * 20.0) - uTime) * uMid * 0.1);
+                    } else if (modeA > 0.3) {
+                        r += cos(angle * 3.0 + uTime) * uBass * 0.02;
+                    } else {
+                        a += tan(dist * 2.0 + uTime * 0.5) * uMid * 0.01;
+                    }
                     
                     vec2 warpedUv = vec2(cos(a), sin(a)) * r + 0.5;
                     
-                    // --- Chromatic Aberration in Feedback ---
-                    float shift = 0.002 + (uTreble * 0.005);
+                    // --- Chromatic Aberration & Feedback ---
+                    float shift = 0.001 + (uTreble * 0.008 * modeC);
                     vec4 prevR = texture2D(uTexture, warpedUv + vec2(shift, 0.0));
                     vec4 prevG = texture2D(uTexture, warpedUv);
                     vec4 prevB = texture2D(uTexture, warpedUv - vec2(shift, 0.0));
                     
-                    // --- Procedural Color Injection ---
-                    float beam = smoothstep(0.02, 0.0, abs(sin(uv.x * 12.0 + uTime * 0.5) * 0.15 - centeredUv.y));
-                    vec3 baseColor = vec3(0.01, 0.002, 0.03) * (sin(uTime * 0.5) * 0.5 + 0.5);
+                    // --- Procedural Color Injection (MilkDrop-style palette engine) ---
+                    float beamWidth = 0.01 + modeB * 0.05;
+                    float beam = smoothstep(beamWidth, 0.0, abs(sin(uv.x * (8.0 + modeA * 10.0) + uTime * 0.4) * 0.2 - centeredUv.y));
                     
-                    // Audio Peaks
                     vec3 peakColor = vec3(0.0);
-                    if(uBass > 0.15) {
-                        float hue = fract(uTime * 0.1 + uRandomSeed);
-                        vec3 rainbow = 0.5 + 0.5 * cos(6.28 * (hue + vec3(0,0.33,0.67)));
-                        peakColor += rainbow * uBass * beam * 2.5;
+                    if(uBass > 0.12) {
+                        float hue = fract(uTime * 0.05 + uRandomSeed + (modeB > 0.5 ? uv.x : uv.y));
+                        // High-fidelity rainbow mapping
+                        vec3 rainbow = 0.5 + 0.5 * cos(6.28318 * (hue + vec3(0.0, 0.33, 0.67)));
+                        peakColor = rainbow * uBass * beam * 3.0;
                     }
                     
-                    // Decay & Blend (Elite Tuning)
+                    // Dynamic Decay Rate (0.97 - 0.99)
+                    float decay = 0.97 + (modeA * 0.02);
                     vec3 prevFrame = vec3(prevR.r, prevG.g, prevB.b);
-                    vec3 finalColor = prevFrame * 0.985 + (baseColor * beam) + peakColor;
+                    vec3 finalColor = (prevFrame * decay) + peakColor;
                     
-                    // Bass Impact Flash
-                    finalColor += vec3(uBass * uBass * 0.2);
+                    // Ambient Glow (Seeding the feedback loop)
+                    finalColor += vec3(0.005, 0.002, 0.01) * beam * (sin(uTime) * 0.5 + 0.5);
+                    
+                    // Bass Impact Flash (MilkDrop style)
+                    if(uBass > 0.8) finalColor += vec3(uBass * 0.1);
 
                     gl_FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0);
                 }
