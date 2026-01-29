@@ -90,7 +90,7 @@ class StreamManager {
             const videoTrack = this.localStream.getVideoTracks()[0];
             if (videoTrack) {
                 await videoTrack.applyConstraints({ frameRate: { ideal: 60 } }).catch(() => { });
-                if ('contentHint' in videoTrack) videoTrack.contentHint = 'detail';
+                if ('contentHint' in videoTrack) videoTrack.contentHint = 'motion'; // Optimized for fluid movement
             }
 
             this.isStreaming = true;
@@ -208,6 +208,7 @@ class StreamManager {
                     const params = sender.getParameters();
                     if (!params.encodings) params.encodings = [{}];
                     params.encodings[0].maxFramerate = 60;
+                    params.encodings[0].degradationPreference = 'maintain-framerate'; // Prioritize smoothness
                     sender.setParameters(params).catch(() => { });
                 }
             });
