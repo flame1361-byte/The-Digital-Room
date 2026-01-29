@@ -68,20 +68,19 @@ class StreamManager {
         }
     }
 
-    async startShare(targetFPS = 60) {
+    async startShare() {
         try {
-            console.log(`[STREAM] Requesting screen share... (1080p/${targetFPS}fps/Hi-Fi Audio)`);
+            console.log('[STREAM] Requesting screen share... (1080p/60fps/Hi-Fi Audio)');
             const constraints = {
                 video: {
                     width: { ideal: 1920, max: 1920 },
                     height: { ideal: 1080, max: 1080 },
-                    frameRate: { ideal: targetFPS, max: targetFPS }
+                    frameRate: { ideal: 60, max: 60 }
                 },
                 audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
-                    suppressLocalAudioPlayback: true, // CRITICAL: Prevents feedback loops during entire screen share
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
                     channelCount: 2
                 }
             };
@@ -90,24 +89,12 @@ class StreamManager {
 
             const videoTrack = this.localStream.getVideoTracks()[0];
             if (videoTrack) {
-                await videoTrack.applyConstraints({ frameRate: { ideal: targetFPS } }).catch(() => { });
-                // Optimization: Use 'motion' for high FPS to prioritize fluidity, 'detail' for standard
-                if ('contentHint' in videoTrack) {
-                    videoTrack.contentHint = targetFPS > 60 ? 'motion' : 'detail';
-                }
+                await videoTrack.applyConstraints({ frameRate: { ideal: 60 } }).catch(() => { });
+                if ('contentHint' in videoTrack) videoTrack.contentHint = 'detail';
             }
 
             this.isStreaming = true;
-            this.targetFPS = targetFPS; // Store for initiateCall
             this.socket.emit('stream-start');
-
-            // BROADCASTER DUCKING: Mute local SoundCloud to prevent capturing it back
-            if (window.widget) {
-                window.widget.setVolume(1); // Set to 1% instead of 0 for widget stability
-                if (window.addSystemMessage) {
-                    window.addSystemMessage("🔇 BROADCASTER MODE: Music ducked locally to prevent feedback.");
-                }
-            }
 
             this.localStream.getVideoTracks()[0].onended = () => this.stopShare();
 
@@ -127,12 +114,6 @@ class StreamManager {
             this.localStream.getTracks().forEach(track => track.stop());
             this.localStream = null;
         }
-
-        // RESTORE VOLUME: Return to user's preferred volume
-        if (window.widget) {
-            window.widget.setVolume(window.volume || 50);
-        }
-
         Object.keys(this.broadcasterPeers).forEach(id => {
             this.broadcasterPeers[id].close();
             delete this.broadcasterPeers[id];
@@ -143,14 +124,6 @@ class StreamManager {
     joinStream(streamerId) {
         if (this.watchedStreams[streamerId]) return;
         this.socket.emit('stream-join', streamerId);
-
-        // AUTO-DUCKING: Mute room music to prevent feedback/delay overlaps
-        if (window.widget) {
-            window.widget.setVolume(window.volume < 10 ? window.volume : 5);
-            if (window.addSystemMessage) {
-                window.addSystemMessage("📡 SIGNAL ACQUIRED: Room music ducked for clarity.");
-            }
-        }
     }
 
     stopWatching(streamerId) {
@@ -160,21 +133,13 @@ class StreamManager {
             if (peerData.videoElement) peerData.videoElement.remove();
             delete this.watchedStreams[streamerId];
         }
-
-        // RESTORE VOLUME: If no more streams are being watched
-        if (Object.keys(this.watchedStreams).length === 0 && window.widget) {
-            window.widget.setVolume(window.volume || 50);
-        }
-
         if (window.onStreamStop) window.onStreamStop(streamerId);
     }
 
     createBroadcasterPeerConnection(peerId) {
         console.log('[STREAM] Creating Broadcaster PC for:', peerId);
         const pc = new RTCPeerConnection({
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-            bundlePolicy: 'max-bundle',
-            rtcpMuxPolicy: 'require'
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         });
 
         pc.onicecandidate = (event) => {
@@ -198,9 +163,7 @@ class StreamManager {
     createViewerPeerConnection(streamerId, fromId) {
         console.log('[STREAM] Creating Viewer PC for streamer:', streamerId);
         const pc = new RTCPeerConnection({
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-            bundlePolicy: 'max-bundle',
-            rtcpMuxPolicy: 'require'
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         });
 
         pc.onicecandidate = (event) => {
@@ -233,43 +196,20 @@ class StreamManager {
         try {
             let offer = await pc.createOffer();
             if (offer.sdp) {
-                // PRIORITIZE GPU ENCODING: Move H.264 to the front to trigger NVENC/Hardware acceleration
-                offer.sdp = this.prioritizeH264(offer.sdp);
-
-                // ULTRA-QUALITY: 20Mbps for GPU-accelerated 120FPS, 10Mbps for 60FPS
-                const bitrate = this.targetFPS > 60 ? 20000 : 10000;
-                offer.sdp = this.setVideoBitrate(offer.sdp, bitrate);
-                offer.sdp = this.setAudioBitrate(offer.sdp, 256);
+                offer.sdp = this.setVideoBitrate(offer.sdp, 8000);
+                offer.sdp = this.setAudioBitrate(offer.sdp, 510);
                 offer = new RTCSessionDescription({ type: offer.type, sdp: offer.sdp });
             }
             await pc.setLocalDescription(offer);
 
             const senders = pc.getSenders();
             senders.forEach(sender => {
-                if (!sender.track) return;
-
-                const params = sender.getParameters();
-                if (!params.encodings) params.encodings = [{}];
-
-                if (sender.track.kind === 'video') {
-                    params.degradationPreference = 'maintain-framerate';
+                if (sender.track && sender.track.kind === 'video') {
+                    const params = sender.getParameters();
                     if (!params.encodings) params.encodings = [{}];
-
-                    params.encodings[0].maxFramerate = this.targetFPS || 60;
-                    params.encodings[0].priority = 'high';
-                    params.encodings[0].networkPriority = 'high';
-
-                    // Force high bitrate at the SVC/Encoding level too
-                    const kbps = this.targetFPS > 60 ? 20000 : 10000;
-                    params.encodings[0].maxBitrate = kbps * 1000;
-                    params.encodings[0].minBitrate = 5000 * 1000; // Keep floor high
-                } else if (sender.track.kind === 'audio') {
-                    // CRITICAL: Give audio high priority to prevent glitches during heavy screen sharing
-                    params.encodings[0].priority = 'high';
-                    params.encodings[0].networkPriority = 'high';
+                    params.encodings[0].maxFramerate = 60;
+                    sender.setParameters(params).catch(() => { });
                 }
-
-                sender.setParameters(params).catch(() => { });
             });
 
             this.socket.emit('stream-signal', { to: peerId, signal: offer, streamerId: this.socket.id });
@@ -313,38 +253,11 @@ class StreamManager {
         sdp = lines.join('\n');
         sdp = sdp.replace(/a=fmtp:(\d+) (.*)/g, (match, pt, params) => {
             if (params.indexOf('opus') !== -1 || sdp.indexOf('a=rtpmap:' + pt + ' opus/48000/2') !== -1) {
-                // STABILIZED: 256kbps + VBR (cbr=0) for better resilience during screen share, stereo enabled.
-                return `a=fmtp:${pt} ${params};stereo=1;sprop-stereo=1;maxaveragebitrate=256000;cbr=0;usedtx=0`;
+                return `a=fmtp:${pt} ${params};stereo=1;sprop-stereo=1;maxaveragebitrate=510000;cbr=1;usedtx=0`;
             }
             return match;
         });
         return sdp;
-    }
-
-    prioritizeH264(sdp) {
-        const lines = sdp.split('\n');
-        const mVideoIndex = lines.findIndex(line => line.startsWith('m=video'));
-        if (mVideoIndex === -1) return sdp;
-
-        const mVideoLine = lines[mVideoIndex];
-        const parts = mVideoLine.split(' ');
-        const payloads = parts.slice(3);
-
-        const h264Payloads = [];
-        const otherPayloads = [];
-
-        payloads.forEach(payload => {
-            const rtpmapLine = lines.find(line => line.startsWith(`a=rtpmap:${payload} H264`));
-            if (rtpmapLine) h264Payloads.push(payload);
-            else otherPayloads.push(payload);
-        });
-
-        if (h264Payloads.length > 0) {
-            const newMVideoLine = parts.slice(0, 3).join(' ') + ' ' + h264Payloads.concat(otherPayloads).join(' ');
-            lines[mVideoIndex] = newMVideoLine;
-        }
-
-        return lines.join('\n');
     }
 }
 

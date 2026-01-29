@@ -10,26 +10,15 @@ const socket = io({
     upgrade: true
 });
 
-// SoundCloud Widget Init (With Retry)
 let widget = null;
-function initWidget(retries = 5) {
+try {
     const widgetIframe = document.getElementById('sc-widget');
     if (widgetIframe && typeof SC !== 'undefined') {
-        try {
-            widget = SC.Widget(widgetIframe);
-            console.log('[SC] Widget initialized successfully.');
-        } catch (e) {
-            console.error('[SC] Widget init failed:', e);
-        }
-    } else if (retries > 0) {
-        console.warn(`[SC] Widget not ready. Retrying... (${retries})`);
-        setTimeout(() => initWidget(retries - 1), 1000);
-    } else {
-        console.error('[SC] FATAL: SC Widget failed to load.');
+        widget = SC.Widget(widgetIframe);
     }
+} catch (e) {
+    console.warn("SoundCloud Widget initialization failed:", e);
 }
-// Start init
-initWidget();
 
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
@@ -114,58 +103,6 @@ const joinStreamBtn = document.getElementById('join-stream-btn');
 const leaveStreamBtn = document.getElementById('leave-stream-btn');
 const streamStartBtn = document.getElementById('stream-start-btn');
 const streamStopBtn = document.getElementById('stream-stop-btn');
-const streamSelectorModal = document.getElementById('stream-selector-modal');
-const streamSelectorList = document.getElementById('stream-selector-list');
-const closeStreamSelectorBtns = document.querySelectorAll('.close-stream-selector');
-
-// Sidebar Toggle for Responsive Design
-function initSidebarToggle() {
-    const userList = document.getElementById('user-list');
-    const profileBox = document.getElementById('profile-box');
-    
-    // Create toggle button if it doesn't exist
-    let toggleBtn = document.querySelector('.sidebar-toggle');
-    if (!toggleBtn && (window.innerWidth <= 1024)) {
-        toggleBtn = document.createElement('button');
-        toggleBtn.className = 'sidebar-toggle';
-        toggleBtn.setAttribute('aria-label', 'Toggle sidebar panels');
-        toggleBtn.setAttribute('aria-expanded', 'false');
-        toggleBtn.textContent = '☰ MENU';
-        document.body.appendChild(toggleBtn);
-    }
-    
-    if (toggleBtn) {
-        toggleBtn.onclick = () => {
-            const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
-            const newState = !isExpanded;
-            
-            toggleBtn.setAttribute('aria-expanded', newState);
-            
-            if (userList) {
-                userList.classList.toggle('drawer-open', newState);
-            }
-            if (profileBox) {
-                profileBox.classList.toggle('drawer-open', newState);
-            }
-        };
-    }
-    
-    // Close drawers when clicking outside
-    document.addEventListener('click', (e) => {
-        if (toggleBtn && !e.target.closest('.sidebar-toggle') && !e.target.closest('#user-list') && !e.target.closest('#profile-box')) {
-            if (userList) userList.classList.remove('drawer-open');
-            if (profileBox) profileBox.classList.remove('drawer-open');
-            if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
-        }
-    });
-}
-
-// Initialize sidebar toggle on load
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initSidebarToggle);
-} else {
-    initSidebarToggle();
-}
 
 let myId = null;
 let currentUser = null; // Stores { username, badge, token }
@@ -591,40 +528,11 @@ sendBtn.onclick = sendMessage;
 chatInput.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
 
 changeNameBtn.onclick = () => {
-    const newName = showGuestNameModal(); // This will be async-ish via UI
-};
-
-function showGuestNameModal() {
-    let modal = document.getElementById('guest-name-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'guest-name-modal';
-        modal.innerHTML = `
-            <div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:9999;">
-                <div style="background:var(--panel-bg); padding:20px; border:1px solid var(--border-color); width:300px; text-align:center;">
-                    <h3 style="color:var(--accent-color); margin-top:0;">CHOOSE NAME</h3>
-                    <input type="text" id="guest-name-input" placeholder="CoolGuest_99" style="width:100%; padding:10px; margin:10px 0; background:#000; color:#fff; border:1px solid #444;">
-                    <button id="guest-name-submit" style="width:100%; background:var(--accent-color); border:none; padding:10px; cursor:pointer; font-weight:bold;">SET NAME</button>
-                    <button id="guest-name-cancel" style="width:100%; background:transparent; border:1px solid #666; color:#aaa; padding:5px; margin-top:5px; cursor:pointer;">CANCEL</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-
-        const close = () => modal.style.display = 'none';
-
-        document.getElementById('guest-name-submit').onclick = () => {
-            const input = document.getElementById('guest-name-input');
-            const name = input.value.trim();
-            if (name) {
-                socket.emit('changeName', name);
-                close();
-            }
-        };
-        document.getElementById('guest-name-cancel').onclick = close;
+    const newName = prompt("ENTER YOUR NEW NICKNAME:", "CoolUser_");
+    if (newName) {
+        socket.emit('changeName', newName);
     }
-    modal.style.display = 'flex';
-}
+};
 
 function sendMessage() {
     const text = chatInput.value.trim();
@@ -811,7 +719,10 @@ changeNameBtn.onclick = () => {
         updatePremiumUI();
         showModal(settingsModal);
     } else {
-        showGuestNameModal();
+        const newName = prompt("ENTER YOUR NEW NICKNAME:", "CoolUser_");
+        if (newName) {
+            socket.emit('changeName', newName);
+        }
     }
 };
 
@@ -1245,102 +1156,50 @@ function emitDJUpdate() {
     });
 }
 
-// --- V2.0 SYNC ENGINE (Perfect Sync) ---
-
 function syncWithDJ(state) {
-    if (isDJ || !widget) return;
-    if (!state.currentTrack) return;
+    if (syncLock || !state.currentTrack || !widget) return;
+    syncLock = true;
 
-    // Ensure track is loaded
+    const serverNow = Date.now() - serverTimeOffset;
+    const targetPos = state.isPlaying ? (serverNow - state.startedAt) : state.pausedAt;
+
     widget.getCurrentSound((sound) => {
-        if (!sound || sound.permalink_url !== state.currentTrack) {
-            console.log('[SYNC] Loading new track:', state.currentTrack);
+        const soundUrl = sound ? sound.permalink_url : null;
+
+        if (soundUrl !== state.currentTrack) {
             widget.load(state.currentTrack, {
                 auto_play: state.isPlaying,
                 callback: () => {
                     widget.setVolume(volume);
-                    performPrecisionSeek(state);
+                    if (state.isPlaying) {
+                        widget.seekTo(targetPos);
+                        widget.play();
+                        setTimeout(() => checkAutoplay(state.isPlaying), 1000);
+                    }
+                    syncLock = false;
                 }
             });
         } else {
-            // Track match, just sync state
-            performPrecisionSeek(state);
-        }
-    });
-
-    // Update UI
-    if (currentTrackLabel) currentTrackLabel.textContent = state.trackTitle || 'Unknown Track';
-    if (currentDjLabel) currentDjLabel.textContent = state.djUsername || 'Auto-DJ';
-
-    // Update V2.0 Timer
-    const timerDisplay = document.getElementById('timer-display');
-    if (timerDisplay) timerDisplay.textContent = state.isPlaying ? 'PLAYING' : 'PAUSED';
-}
-
-function performPrecisionSeek(state) {
-    if (!widget || isDJ) return;
-
-    widget.isPaused((isPaused) => {
-        // 1. Handle Play/Pause State
-        if (state.isPlaying && isPaused) {
-            console.log('[SYNC] Resuming playback...');
-            widget.play();
-        } else if (!state.isPlaying && !isPaused) {
-            console.log('[SYNC] Pausing playback...');
-            widget.pause();
-        }
-
-        // 2. Calculate Exact Target Position (The "Truth")
-        // Target = (LocalTime - Offset) - StartedAt
-        // Note: serverTimeOffset = Local - Server. So Server = Local - Offset.
-        const now = Date.now();
-        
-        // Validate serverTimeOffset is a finite number
-        const validatedOffset = Number.isFinite(serverTimeOffset) ? serverTimeOffset : 0;
-        const serverNow = now - validatedOffset;
-        let targetPos = 0;
-
-        if (state.isPlaying) {
-            // Guard against undefined/null state.startedAt
-            const startedAt = Number.isFinite(state.startedAt) ? state.startedAt : 0;
-            targetPos = serverNow - startedAt;
-        } else {
-            // Guard against undefined/null state.pausedAt
-            targetPos = Number.isFinite(state.pausedAt) ? state.pausedAt : 0;
-        }
-
-        // Validate and clamp to positive, ensuring targetPos is a finite number
-        targetPos = Math.max(0, Number(targetPos) || 0);
-
-        // 3. Measure Drift & Correct
-        // Only proceed if targetPos is a valid finite number
-        if (Number.isFinite(targetPos)) {
-            widget.getPosition((currentPos) => {
-                const drift = Math.abs(currentPos - targetPos);
-
-                // Correction Thresholds
-                if (drift > 2000) {
-                    console.log(`[SYNC] HARD SEEK: Drift ${drift}ms > 2000ms. Seeking to ${targetPos}ms`);
-                    widget.seekTo(targetPos);
-                } else if (drift > 500) {
-                    console.log(`[SYNC] SOFT SEEK: Drift ${drift}ms. Nudging...`);
-                    // For SC Widget, we can't change speed, so we just do a small seek
-                    widget.seekTo(targetPos);
+            widget.isPaused((paused) => {
+                if (state.isPlaying && paused) {
+                    widget.play();
+                    setTimeout(() => checkAutoplay(true), 1000);
+                } else if (!state.isPlaying && !paused) {
+                    widget.pause();
                 }
+
+                widget.getPosition((currentPos) => {
+                    const drift = Math.abs(currentPos - targetPos);
+                    if (state.isPlaying && drift > 1500) {
+                        widget.seekTo(targetPos);
+                    }
+                    syncLock = false;
+                });
             });
-        } else {
-            console.warn('[SYNC] Invalid targetPos calculated:', targetPos);
         }
     });
 }
 
-
-// Global Sync Loop (Runs every 1s to keep check)
-setInterval(() => {
-    if (!isDJ && currentUser && currentRoomState && currentRoomState.currentTrack) {
-        performPrecisionSeek(currentRoomState);
-    }
-}, 1000);
 
 function checkAutoplay(shouldBePlaying) {
     widget.isPaused((paused) => {
@@ -1684,12 +1543,12 @@ window.onStreamsUpdate = (activeStreams) => {
     currentRoomState.activeStreams = activeStreams || [];
     if (streamCountBadge) streamCountBadge.textContent = `${currentRoomState.activeStreams.length}/10`;
 
-    // Toggle overall viewport - SHOW if anyone is live, OR if I am broadcasting
-    const hasActiveSignals = currentRoomState.activeStreams.length > 0;
+    // Toggle overall viewport
+    const hasStreamsWatcherIsWatching = Object.keys(streamManager.watchedStreams).length > 0;
     const isBroadcasting = streamManager.isStreaming;
 
     if (streamViewport) {
-        streamViewport.style.display = (hasActiveSignals || isBroadcasting) ? 'block' : 'none';
+        streamViewport.style.display = (hasStreamsWatcherIsWatching || isBroadcasting) ? 'block' : 'none';
     }
 
     // Populate Stream Directory
@@ -1714,9 +1573,9 @@ window.onStreamsUpdate = (activeStreams) => {
                     <div style="display: flex; gap: 4px;">
                         ${isMe ?
                         '<span style="font-size: 0.5rem; color: #ff0055; border: 1px solid #ff0055; padding: 1px 4px;">YOU</span>' :
-                        `<button onclick="toggleStreamSelector()"
-                                style="background: #ff0055; color: white; border: none; font-size: 0.5rem; padding: 2px 6px; cursor: pointer; min-width: 45px;">
-                                WATCH
+                        `<button onclick="streamManager.${isWatching ? 'stopWatching' : 'joinStream'}('${s.streamerId}')"
+                                style="background: ${isWatching ? '#333' : '#ff0055'}; color: white; border: none; font-size: 0.5rem; padding: 2px 6px; cursor: pointer; min-width: 45px;">
+                                ${isWatching ? 'LEAVE' : 'WATCH'}
                             </button>`
                     }
                     </div>
@@ -1726,166 +1585,47 @@ window.onStreamsUpdate = (activeStreams) => {
         }
     }
 
-    if (streamSelectorModal && streamSelectorModal.style.display === 'flex') {
-        updateStreamSelectorUI();
-    }
-
     renderUserList();
 };
-
-window.toggleStreamSelector = (show = null) => {
-    if (!streamSelectorModal) return;
-    const isShowing = show !== null ? show : streamSelectorModal.style.display === 'none';
-    streamSelectorModal.style.display = isShowing ? 'flex' : 'none';
-    if (isShowing) updateStreamSelectorUI();
-};
-
-function updateStreamSelectorUI() {
-    if (!streamSelectorList) return;
-
-    if (currentRoomState.activeStreams.length === 0) {
-        streamSelectorList.innerHTML = `
-            <div style="text-align: center; color: #ff0055; font-size: 0.8rem; padding: 30px; border: 1px dashed rgba(255, 0, 85, 0.3); border-radius: 8px;">
-                <span class="blinker">●</span> NO ACTIVE SIGNALS DETECTED
-            </div>
-        `;
-        return;
-    }
-
-    streamSelectorList.innerHTML = '';
-    currentRoomState.activeStreams.forEach(s => {
-        const isWatching = !!streamManager.watchedStreams[s.streamerId];
-        const isMe = s.streamerId === myId;
-
-        const div = document.createElement('div');
-        div.className = 'stream-selector-item';
-        div.innerHTML = `
-            <div class="stream-selector-info">
-                <div class="streamer-avatar-mini" style="background: ${isMe ? '#ff0055' : '#111'};"></div>
-                <div>
-                   <div class="streamer-name-modal">${s.streamerName} ${isMe ? '(YOU)' : ''}</div>
-                   <div style="font-size: 0.5rem; color: #ff0055;">1080P / 120 FPS / HIFi</div>
-                </div>
-            </div>
-            ${isMe ?
-                '<span style="font-size: 0.6rem; color: #ff0055; font-weight: bold;">BROADCASTING</span>' :
-                `<button onclick="window.streamManager.${isWatching ? 'stopWatching' : 'joinStream'}('${s.streamerId}'); window.toggleStreamSelector(false);" 
-                   class="stream-join-btn-premium ${isWatching ? 'stream-leave-btn-premium' : ''}">
-                   ${isWatching ? 'LEAVE' : 'JOIN STREAM'}
-                </button>`
-            }
-        `;
-        streamSelectorList.appendChild(div);
-    });
-}
-
-// Wire close buttons
-closeStreamSelectorBtns.forEach(btn => {
-    btn.onclick = () => toggleStreamSelector(false);
-});
-
-function renderUserList() {
-    if (!usersContainer) return;
-    usersContainer.innerHTML = '';
-    Object.values(currentRoomState.users || {}).forEach(u => {
-        const div = document.createElement('div');
-        div.className = 'user-item';
-        div.style = 'display: flex; align-items: center; padding: 5px; border-bottom: 1px solid rgba(255,255,255,0.05);';
-        div.innerHTML = `
-            <img src="${u.badge}" style="width: 20px; height: 20px; border-radius: 50%; border: 1px solid #ff00ff; margin-right: 8px;" />
-            <span class="${u.nameStyle || ''}" style="font-size: 0.7rem; color: #fff;">${u.name}</span>
-            ${u.isLive ? ' <span class="blinker" style="color: #ff0055; font-size: 0.6rem; margin-left: auto;">● LIVE</span>' : ''}
-        `;
-        usersContainer.appendChild(div);
-    });
-}
 
 window.onRemoteStream = (stream, streamerId) => {
     if (!streamsGrid) return;
 
+    // Create container for this specific streamer
     let container = document.getElementById(`stream-card-${streamerId}`);
     if (!container) {
         container = document.createElement('div');
         container.id = `stream-card-${streamerId}`;
         container.className = 'stream-card';
+        container.style = 'position: relative; background: #000; border: 1px solid #ff0055; aspect-ratio: 16/9;';
 
         const streamerInfo = currentRoomState.activeStreams.find(s => s.streamerId === streamerId);
         let name = streamerInfo ? streamerInfo.streamerName : 'Unknown Streamer';
-        if (streamerId === myId && currentUser) name = `YOU (${currentUser.username})`;
+
+        if (streamerId === myId && currentUser) {
+            name = `YOU (${currentUser.username})`;
+        }
 
         container.innerHTML = `
-            <div class="stream-card-header">
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <span class="stream-live-tag">LIVE</span>
-                    <span class="streamer-name-tag">${name}</span>
-                </div>
-                <div class="stream-controls-top">
-                    <button class="stream-ctrl-btn pip-btn" title="Picture-in-Picture">📺</button>
-                    <button class="stream-ctrl-btn fs-btn" title="Full Screen">⛶</button>
-                    <button class="stream-ctrl-btn theater-btn" title="Theater Mode">🎭</button>
-                    <button class="stream-ctrl-btn close-stream-btn" onclick="streamManager.stopWatching('${streamerId}')" title="Stop Watching">X</button>
-                </div>
+            <div style="position: absolute; top:0; left:0; right:0; background: rgba(255,0,85,0.8); color:white; font-size:0.6rem; padding: 2px 5px; z-index:10; display:flex; justify-content:space-between;">
+                <span>BROADCAST: ${name}</span>
+                <button onclick="streamManager.stopWatching('${streamerId}')" style="background:none; border:none; color:white; cursor:pointer; font-weight:bold;">X</button>
             </div>
-            <div class="video-container">
-                <video autoplay playsinline ${streamerId === myId ? 'muted' : ''}></video>
-            </div>
-            <div class="stream-card-footer">
-                 <div class="stream-vol-ctrl">
-                     <span class="vol-icon">🔊</span>
-                     <input type="range" class="stream-vol-slider" min="0" max="1" step="0.05" value="1">
-                 </div>
+            <video autoplay playsinline style="width:100%; height:100%; object-fit:contain;"></video>
+            <div style="position: absolute; bottom: 5px; right: 5px; display:flex; gap: 5px; align-items:center;">
+                 <span style="color:white; font-size:0.5rem; font-family:monospace;">VOL:</span>
+                 <input type="range" class="stream-vol-slider" min="0" max="1" step="0.05" value="1" style="width:50px; height:8px; accent-color:#ff0055;">
             </div>
         `;
         streamsGrid.appendChild(container);
 
         const video = container.querySelector('video');
         const slider = container.querySelector('.stream-vol-slider');
-        const theaterBtn = container.querySelector('.theater-btn');
-        const pipBtn = container.querySelector('.pip-btn');
-        const fsBtn = container.querySelector('.fs-btn');
 
         video.srcObject = stream;
-        if (streamerId === myId) {
-            video.muted = true;
-            video.volume = 0;
-            if (slider) slider.value = 0;
-        }
+        slider.oninput = (e) => { video.volume = e.target.value; };
 
-        slider.oninput = (e) => {
-            video.volume = e.target.value;
-            if (streamerId === myId) video.muted = true; // Stay muted if it's me
-        };
-
-        // theater Mode Toggle
-        theaterBtn.onclick = () => {
-            container.classList.toggle('theater-mode');
-            const isTheater = container.classList.contains('theater-mode');
-            theaterBtn.textContent = isTheater ? '🖼️' : '🎭';
-            if (isTheater) container.scrollIntoView({ behavior: 'smooth' });
-        };
-
-        // Picture-in-Picture
-        pipBtn.onclick = async () => {
-            try {
-                if (document.pictureInPictureElement) await document.exitPictureInPicture();
-                else await video.requestPictureInPicture();
-            } catch (err) { console.error('[STREAM] PiP failed:', err); }
-        };
-
-        // Full Screen API
-        fsBtn.onclick = () => {
-            if (video.requestFullscreen) {
-                video.requestFullscreen();
-            } else if (video.webkitRequestFullscreen) { /* Safari */
-                video.webkitRequestFullscreen();
-            } else if (video.msRequestFullscreen) { /* IE11 */
-                video.msRequestFullscreen();
-            }
-        };
-
-        if (streamManager.watchedStreams[streamerId]) {
-            streamManager.watchedStreams[streamerId].videoElement = container;
-        }
+        streamManager.watchedStreams[streamerId].videoElement = container;
     }
 };
 
@@ -1914,13 +1654,20 @@ window.onStreamStop = (streamerId) => {
 document.addEventListener('DOMContentLoaded', () => {
     const startBtn = document.getElementById('stream-start-btn');
     const stopBtn = document.getElementById('stream-stop-btn');
-    const fpsToggle = document.getElementById('stream-120fps-toggle');
 
-    if (startBtn) {
-        startBtn.onclick = () => {
-            const targetFPS = (fpsToggle && fpsToggle.checked) ? 120 : 60;
-            streamManager.startShare(targetFPS);
-        };
-    }
+    if (startBtn) startBtn.onclick = () => streamManager.startShare();
     if (stopBtn) stopBtn.onclick = () => streamManager.stopShare();
+});
+
+// Stream Volume Control
+document.addEventListener('DOMContentLoaded', () => {
+    const streamVolumeSlider = document.getElementById('stream-volume-slider');
+    const remoteVideo = document.getElementById('remote-stream-video');
+
+    if (streamVolumeSlider && remoteVideo) {
+        streamVolumeSlider.addEventListener('input', (e) => {
+            const vol = parseFloat(e.target.value);
+            remoteVideo.volume = vol;
+        });
+    }
 });
