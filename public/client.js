@@ -151,18 +151,18 @@ socket.on('connect', () => {
         connStatus.textContent = '[ONLINE]';
         connStatus.style.color = '#00ff00';
     }
-    console.log('Connected to server');
+}
     performTimeSync(); // Start high-precision sync
 
-    // Setup Audio Unlock Interaction
-    if (audioUnlockOverlay) {
-        audioUnlockOverlay.onclick = () => {
-            console.log('[AUDIO] User interaction captured. Unlocking...');
-            widget.play();
-            visualizer.initAudioSync(); // Start 3D Visualizer Sync
-            audioUnlockOverlay.style.display = 'none';
-        };
-    }
+// Setup Audio Unlock Interaction
+if (audioUnlockOverlay) {
+    audioUnlockOverlay.onclick = () => {
+        console.log('[AUDIO] User interaction captured. Unlocking...');
+        widget.play();
+        visualizer.initAudioSync(); // Start 3D Visualizer Sync
+        audioUnlockOverlay.style.display = 'none';
+    };
+}
 });
 
 // NTP-style clock synchronization
@@ -180,7 +180,7 @@ async function performTimeSync() {
     }
     // Simple average of offsets
     serverTimeOffset = offsets.reduce((a, b) => a + b, 0) / offsets.length;
-    console.log('[TIME] High-precision sync complete. Offset:', serverTimeOffset.toFixed(2), 'ms');
+    serverTimeOffset = offsets.reduce((a, b) => a + b, 0) / offsets.length;
 }
 
 // Keep clock synced every 60s
