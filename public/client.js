@@ -141,9 +141,6 @@ let lastY = 0;
 let serverTimeOffset = 0; // Local - Server time difference
 let isBuffering = false;   // Track SoundCloud buffering state
 
-const visualizer = new VisualizerManager();
-window.visualizer = visualizer;
-
 // --- Initialization ---
 
 socket.on('connect', () => {
@@ -151,6 +148,7 @@ socket.on('connect', () => {
         connStatus.textContent = '[ONLINE]';
         connStatus.style.color = '#00ff00';
     }
+    console.log('Connected to server');
     performTimeSync(); // Start high-precision sync
 
     // Setup Audio Unlock Interaction
@@ -158,7 +156,6 @@ socket.on('connect', () => {
         audioUnlockOverlay.onclick = () => {
             console.log('[AUDIO] User interaction captured. Unlocking...');
             widget.play();
-            visualizer.initAudioSync(); // Start 3D Visualizer Sync
             audioUnlockOverlay.style.display = 'none';
         };
     }
@@ -179,6 +176,7 @@ async function performTimeSync() {
     }
     // Simple average of offsets
     serverTimeOffset = offsets.reduce((a, b) => a + b, 0) / offsets.length;
+    console.log('[TIME] High-precision sync complete. Offset:', serverTimeOffset.toFixed(2), 'ms');
 }
 
 // Keep clock synced every 60s

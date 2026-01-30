@@ -115,17 +115,6 @@
 
             <!-- Main Panel: Player and Chat -->
             <section id="center-panel">
-                <!-- 3D Milk Drop Visualizer Window -->
-                <div id="visualizer-window">
-                    <div class="box-header">3D MILK DROP VISUALIZER <span
-                            style="font-size: 0.5rem; color: #fff; cursor: help;" title="PRESS 'R' TO RANDOMIZE">(PRESS
-                            'R' TO RANDOMIZE)</span></div>
-                    <div id="visualizer-container"
-                        style="height: 250px; background: #000; border: 1px solid var(--border-color); position: relative; overflow: hidden;">
-                        <canvas id="visualizer-canvas"></canvas>
-                    </div>
-                </div>
-
                 <div id="stream-viewport" style="display: none; margin-bottom: 20px;">
                     <div class="box-header" style="background: #ff0055; color: #fff;">ACTIVE BROADCASTS <span
                             id="stream-count-badge"
@@ -488,10 +477,8 @@
     <!-- Socket.io and SoundCloud Widget API -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://w.soundcloud.com/player/api.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="VoiceManager.js"></script>
     <script src="StreamManager.js"></script>
-    <script src="VisualizerManager.js"></script>
     <script src="client.js"></script>
 </body>
 

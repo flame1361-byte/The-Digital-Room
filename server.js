@@ -4,8 +4,6 @@ const { Server } = require('socket.io');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const { usersDb } = require('./db');
 
 let roomState = {
@@ -27,16 +25,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'myspace_secret_key_123';
 const ADMIN_USER = process.env.ADMIN_USER || 'mayne';
 
 const app = express();
-app.use(helmet({
-    contentSecurityPolicy: false, // Required for SoundCloud iframe
-}));
-
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 20, // 20 requests per IP
-    message: { error: "Too many attempts, please try again later." }
-});
-
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: "*", methods: ["GET", "POST"], credentials: true },
@@ -133,7 +121,7 @@ io.on('connection', (socket) => {
         callback?.(Date.now());
     });
 
-    socket.on('register', authLimiter, async ({ username, password }, callback) => {
+    socket.on('register', async ({ username, password }, callback) => {
         try {
             if (!username || !password) return callback?.({ error: 'Required' });
             if (await usersDb.findOne({ username })) return callback?.({ error: 'Exists' });
@@ -147,7 +135,7 @@ io.on('connection', (socket) => {
         } catch (err) { callback?.({ error: 'Error' }); }
     });
 
-    socket.on('login', authLimiter, async ({ username, password }, callback) => {
+    socket.on('login', async ({ username, password }, callback) => {
         try {
             const user = await usersDb.findOne({ username });
             if (!user || !(await bcrypt.compare(password, user.password))) return callback?.({ error: 'Invalid' });
