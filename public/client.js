@@ -1701,8 +1701,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const startBtn = document.getElementById('stream-start-btn');
     const stopBtn = document.getElementById('stream-stop-btn');
 
-    if (startBtn) startBtn.onclick = () => streamManager.startShare();
-    if (stopBtn) stopBtn.onclick = () => streamManager.stopShare();
+    if (startBtn) startBtn.onclick = async () => {
+        const success = await streamManager.startShare();
+        if (success) {
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'block';
+        }
+    };
+    if (stopBtn) stopBtn.onclick = () => {
+        streamManager.stopShare();
+        startBtn.style.display = 'block';
+        stopBtn.style.display = 'none';
+    };
 });
 
 // Stream Volume Control
