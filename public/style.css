@@ -587,7 +587,249 @@ button:active {
     font-size: 0.8rem;
     animation: gold-sparkle-float 1.5s ease-in-out infinite;
     -webkit-text-fill-color: initial;
+    /* SVG Filters */
     filter: drop-shadow(0 0 5px #ffd700);
+}
+
+/* --- Enhanced Profile UI --- */
+
+.cyber-label {
+    display: block;
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: #aaa;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+.cyber-input,
+.cyber-select {
+    width: 100%;
+    box-sizing: border-box;
+    background: #000;
+    color: #fff;
+    border: 1px solid var(--border-color);
+    padding: 8px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.9rem;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.cyber-input:focus,
+.cyber-select:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 10px rgba(255, 255, 0, 0.2);
+}
+
+.cyber-input-file {
+    font-size: 0.8rem;
+    color: var(--accent-color);
+}
+
+.premium-border {
+    border: 2px dashed var(--accent-color);
+    background: rgba(255, 215, 0, 0.05);
+}
+
+/* --- High-Effort UI Upgrades --- */
+
+/* Holographic Card Effect */
+.identity-card {
+    background: rgba(10, 10, 10, 0.9);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(5px);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.identity-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transform: skewX(-25deg);
+    animation: holo-shimmer 3s infinite linear;
+    pointer-events: none;
+}
+
+.identity-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: rgba(0, 255, 255, 0.8);
+    box-shadow: 0 0 10px #0ff;
+    animation: laser-scan 4s infinite ease-in-out;
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.identity-card:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+    border-color: rgba(0, 255, 255, 0.8);
+}
+
+@keyframes holo-shimmer {
+    0% {
+        left: -150%;
+    }
+
+    100% {
+        left: 150%;
+    }
+}
+
+@keyframes laser-scan {
+
+    0%,
+    100% {
+        top: 0;
+        opacity: 0;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        top: 100%;
+        opacity: 0;
+    }
+}
+
+/* Terminal Input Styling */
+.cyber-input-wrapper {
+    position: relative;
+    margin-bottom: 15px;
+}
+
+.cyber-input,
+.cyber-select {
+    width: 100%;
+    box-sizing: border-box;
+    background: #050505;
+    color: #0f0;
+    border: none;
+    border-bottom: 2px solid #333;
+    padding: 10px;
+    font-family: 'VT323', monospace;
+    font-size: 1.1rem;
+    outline: none;
+    transition: all 0.3s;
+    letter-spacing: 1px;
+}
+
+.cyber-input:focus,
+.cyber-select:focus {
+    background: #001100;
+    border-bottom-color: #0f0;
+    text-shadow: 0 0 5px #0f0;
+}
+
+/* Animated Border Effect */
+.input-border-anim {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background: #0f0;
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+    box-shadow: 0 0 10px #0f0;
+}
+
+.cyber-input:focus~.input-border-anim,
+.cyber-select:focus~.input-border-anim {
+    width: 100%;
+}
+
+/* Boot Sequence Animation */
+@keyframes boot-fade {
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.boot-sequence {
+    animation: boot-fade 0.5s ease-out forwards;
+    opacity: 0;
+}
+
+.boot-delay-1 {
+    animation-delay: 0.1s;
+}
+
+.boot-delay-2 {
+    animation-delay: 0.2s;
+}
+
+.boot-delay-3 {
+    animation-delay: 0.3s;
+}
+
+/* Premium Holographic Badge */
+.holo-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 1.2rem;
+    filter: drop-shadow(0 0 5px #ffd700);
+    animation: badge-pulse 2s infinite;
+    z-index: 10;
+}
+
+@keyframes badge-pulse {
+    0% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.1);
+        filter: drop-shadow(0 0 10px #ffd700);
+    }
+
+    100% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+}
+
+/* Card Text Styling */
+.card-header {
+    font-family: 'VT323', monospace;
+    color: #0ff;
+    text-shadow: 0 0 2px #0ff;
+    border-bottom: 1px dashed rgba(0, 255, 255, 0.3);
+}
+
+.card-footer {
+    font-family: 'VT323', monospace;
+    color: #0ff;
+    text-shadow: 0 0 2px #0ff;
+    border-top: 1px dashed rgba(0, 255, 255, 0.3);
 }
 
 .name-matrix {

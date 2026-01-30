@@ -265,77 +265,102 @@
                 style="border: 1px solid var(--border-color); margin: 0 20px 20px 20px; padding: 15px; background: rgba(0,0,0,0.2);">
 
                 <!-- Profile Tab -->
-                <div id="tab-profile">
-                    <div class="settings-group">
-                        <div class="group-label">IDENTITY & STYLE</div>
-                        <label>AVATAR UPLOAD:</label>
-                        <input type="file" id="settings-pfp-file" accept="image/*" />
-                        <label style="margin-top: 10px; display: block;">NAME STYLE:</label>
-                        <select id="settings-name-style"
-                            style="background: #000; color: var(--text-color); border: 1px solid var(--text-color); padding: 5px; font-family: inherit; width: 100%;">
-                            <option value="">[COMMON] DEFAULT WHITE</option>
+                <!-- Profile Tab (Enhanced & Animated) -->
+                <div id="tab-profile" style="display: none; gap: 20px;">
+                    <!-- Left Column: Editor -->
+                    <div style="flex: 1;">
+                        <div class="settings-group boot-sequence boot-delay-1">
+                            <div class="group-label">IDENTITY EDITOR</div>
 
-                            <optgroup label="--- UNCOMMON ---">
-                                <option value="name-rainbow">[UNCOMMON] RAINBOW CYCLE</option>
-                                <option value="name-glitch">[UNCOMMON] DIGITAL GLITCH</option>
-                                <option value="name-neon">[UNCOMMON] NEON PULSE</option>
-                                <option value="name-fire">[UNCOMMON] FIRE FLICKER</option>
-                            </optgroup>
+                            <label class="cyber-label">AVATAR UPLOAD</label>
+                            <input type="file" id="settings-pfp-file" accept="image/*" class="cyber-input-file" />
 
-                            <optgroup label="--- RARE (PREMIUM) ---">
-                                <option value="name-gold">[RARE] GOLD SPARKLE</option>
-                                <option value="name-ghost">[RARE] GHOSTLY</option>
-                            </optgroup>
+                            <label class="cyber-label">NAME STYLE</label>
+                            <div class="cyber-input-wrapper">
+                                <select id="settings-name-style" class="cyber-select">
+                                    <option value="">[COMMON] DEFAULT WHITE</option>
+                                    <optgroup label="--- UNCOMMON ---">
+                                        <option value="name-rainbow">[UNCOMMON] RAINBOW CYCLE</option>
+                                        <option value="name-glitch">[UNCOMMON] DIGITAL GLITCH</option>
+                                        <option value="name-neon">[UNCOMMON] NEON PULSE</option>
+                                        <option value="name-fire">[UNCOMMON] FIRE FLICKER</option>
+                                    </optgroup>
+                                    <optgroup label="--- RARE (PREMIUM) ---">
+                                        <option value="name-gold">[RARE] GOLD SPARKLE</option>
+                                        <option value="name-ghost">[RARE] GHOSTLY</option>
+                                    </optgroup>
+                                    <optgroup label="--- EPIC (PREMIUM) ---">
+                                        <option value="name-matrix">[EPIC] MATRIX RAIN</option>
+                                        <option value="name-rainbow-v2">[EPIC] RAINBOW DELUXE</option>
+                                        <option value="name-cherry-blossom">[EPIC] CHERRY BLOSSOM</option>
+                                    </optgroup>
+                                    <optgroup label="--- LEGENDARY (EXCLUSIVE) ---">
+                                        <option value="name-co-owner-luck" id="opt-co-owner-luck"
+                                            style="display: none;">[LEGENDARY] CO-OWNER'S LUCK</option>
+                                        <option value="name-mummy-exclusive" id="opt-mummy-exclusive"
+                                            style="display: none;">[LEGENDARY] THE MUMMY</option>
+                                        <option value="name-demon-eyes" id="opt-demon-eyes" style="display: none;">
+                                            [LEGENDARY] DEMON'S EYES</option>
+                                    </optgroup>
+                                </select>
+                                <div class="input-border-anim"></div>
+                            </div>
 
-                            <optgroup label="--- EPIC (PREMIUM) ---">
-                                <option value="name-matrix">[EPIC] MATRIX RAIN</option>
-                                <option value="name-rainbow-v2">[EPIC] RAINBOW DELUXE</option>
-                                <option value="name-cherry-blossom">[EPIC] CHERRY BLOSSOM
-                                </option>
-                            </optgroup>
-
-
-
-                            <optgroup label="--- LEGENDARY (EXCLUSIVE) ---">
-                                <option value="name-co-owner-luck" id="opt-co-owner-luck" style="display: none;">
-                                    [LEGENDARY] CO-OWNER'S LUCK</option>
-                                <option value="name-mummy-exclusive" id="opt-mummy-exclusive" style="display: none;">
-                                    [LEGENDARY] THE MUMMY</option>
-                                <option value="name-demon-eyes" id="opt-demon-eyes" style="display: none;">[LEGENDARY]
-                                    DEMON'S EYES</option>
-                            </optgroup>
-
-
-                        </select>
-                        <label style="margin-top: 10px; display: block;">PERSONAL
-                            STATUS:</label>
-                        <input type="text" id="settings-status" maxlength="40" placeholder="WHAT'S ON YOUR MIND?"
-                            style="width: 100%; box-sizing: border-box; background: #000; color: #fff; border: 1px solid var(--border-color); padding: 5px; font-family: inherit;" />
-                    </div>
-
-                    <div id="premium-shop" class="settings-group"
-                        style="text-align: center; border-style: dashed; border-color: var(--accent-color);">
-                        <div class="group-label">UPGRADES</div>
-                        <div style="font-size: 0.7rem; color: #ffd700; margin-bottom: 8px;">👑
-                            UNLOCK PREMIUM STYLE PACK
+                            <label class="cyber-label">STATUS MESSAGE</label>
+                            <div class="cyber-input-wrapper">
+                                <input type="text" id="settings-status" maxlength="40" class="cyber-input"
+                                    placeholder="STATUS..." />
+                                <div class="input-border-anim"></div>
+                            </div>
                         </div>
-                        <a id="paypal-link"
-                            href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=flame1361@gmail.com&item_name=TheDigitalRoom+Premium+Styles&amount=0.99&currency_code=USD"
-                            target="_blank"
-                            style="display: block; background: #0070ba; color: white; text-decoration: none; padding: 8px; font-size: 0.8rem; font-weight: bold; border-radius: 4px; border: 1px solid white;">BUY
-                            ($0.99)</a>
-                        <button id="claim-premium-btn"
-                            style="width: 100%; margin-top: 8px; font-size: 0.5rem; background: transparent; border: 1px solid #444;">ALREADY
-                            PAID? SYNC STATUS</button>
+
+                        <div id="premium-shop" class="settings-group premium-border boot-sequence boot-delay-2"
+                            style="text-align: center;">
+                            <div class="group-label">UPGRADES</div>
+                            <div style="font-size: 0.7rem; color: #ffd700; margin-bottom: 8px;">👑 UNLOCK PREMIUM STYLE
+                                PACK</div>
+                            <a id="paypal-link"
+                                href="https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=flame1361@gmail.com&item_name=TheDigitalRoom+Premium+Styles&amount=0.99&currency_code=USD"
+                                target="_blank"
+                                style="display: block; background: #0070ba; color: white; text-decoration: none; padding: 8px; font-size: 0.8rem; font-weight: bold; border-radius: 4px; border: 1px solid white;">BUY
+                                ($0.99)</a>
+                            <button id="claim-premium-btn"
+                                style="width: 100%; margin-top: 8px; font-size: 0.5rem; background: transparent; border: 1px solid #444; color: #aaa; cursor: pointer;">ALREADY
+                                PAID? SYNC STATUS</button>
+                        </div>
+
+                        <div class="settings-group boot-sequence boot-delay-3">
+                            <div class="group-label">SECURITY</div>
+                            <label class="cyber-label">NEW PASSWORD</label>
+                            <div class="cyber-input-wrapper">
+                                <input type="password" id="settings-pass" class="cyber-input"
+                                    placeholder="LEAVE EMPTY TO KEEP" />
+                                <div class="input-border-anim"></div>
+                            </div>
+                        </div>
                     </div>
 
-
-
-                    <div class="settings-group">
-                        <div class="group-label">SECURITY</div>
-                        <label>UPDATE PASSWORD:</label>
-                        <input type="password" id="settings-pass" placeholder="LEAVE BLANK TO KEEP"
-                            style="width: 100%;" />
+                    <!-- Right Column: Preview -->
+                    <div style="width: 200px; display: flex; flex-direction: column; gap: 10px;"
+                        class="boot-sequence boot-delay-2">
+                        <div class="group-label" style="text-align: center;">LIVE PREVIEW</div>
+                        <div id="profile-preview-card" class="identity-card">
+                            <!-- Premium Holographic Badge (Injected via JS) -->
+                            <div class="card-header">
+                                <span>ID: <span id="preview-id">UNKNOWN</span></span>
+                                <span>v2.0</span>
+                            </div>
+                            <img id="preview-avatar"
+                                src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6NHRxZzR6JnB0X2lkPWdpcGh5X2dpZl9zZWFyY2gmZXA9djFfZ2lmX3NlYXJjaCZyaWQ9Z2lwaHkuZ2lmJmN0PWc/3o7TKMGpxPAb3NGoPC/giphy.gif"
+                                class="card-avatar" />
+                            <div id="preview-name" class="card-name">GUEST</div>
+                            <div id="preview-status" class="card-status">NO STATUS</div>
+                            <div class="card-footer">THE DIGITAL ROOM</div>
+                        </div>
+                        <div
+                            style="font-size: 0.6rem; color: #0ff; text-align: center; margin-top: 5px; text-shadow: 0 0 5px #0ff;">
+                            &lt; SYSTEM VERIFIED &gt;
+                        </div>
                     </div>
                 </div>
 

@@ -739,6 +739,48 @@ changeNameBtn.onclick = () => {
         document.getElementById('settings-pfp-file').value = '';
         nameStyleSelect.value = currentUser.nameStyle || '';
         if (statusInput) statusInput.value = currentUser.status || '';
+
+        // --- Populate Preview ---
+        const previewAvatar = document.getElementById('preview-avatar');
+        const previewName = document.getElementById('preview-name');
+        const previewStatus = document.getElementById('preview-status');
+        const previewId = document.getElementById('preview-id');
+
+        if (previewAvatar) previewAvatar.src = currentUser.badge || 'https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHRraWN0YXpwaHlsZzB2ZGR6YnJ4ZzR6NHRxZzR6NHRxZzR6JnB0X2lkPWdpcGh5X2dpZl9zZWFyY2gmZXA9djFfZ2lmX3NlYXJjaCZyaWQ9Z2lwaHkuZ2lmJmN0PWc/3o7TKMGpxPAb3NGoPC/giphy.gif';
+
+        if (previewName) {
+            previewName.textContent = currentUser.username;
+            previewName.className = 'card-name';
+            if (currentUser.nameStyle) previewName.classList.add(currentUser.nameStyle);
+        }
+
+        if (previewStatus) previewStatus.textContent = currentUser.status || 'NO STATUS';
+        if (previewId) previewId.textContent = currentUser.id ? currentUser.id.substring(0, 5).toUpperCase() : '???';
+
+        // --- High-Effort: Inject Holographic Badge for Premium ---
+        const previewCard = document.getElementById('profile-preview-card');
+        if (previewCard) {
+            const oldBadge = previewCard.querySelector('.holo-badge');
+            if (oldBadge) oldBadge.remove();
+
+            if (currentUser.hasPremiumPack) {
+                const badge = document.createElement('div');
+                badge.className = 'holo-badge';
+                badge.textContent = '👑';
+                badge.title = 'PREMIUM USER';
+                previewCard.appendChild(badge);
+            }
+        }
+
+        // --- High-Effort: Restart Boot Animations ---
+        const bootElements = document.querySelectorAll('.boot-sequence');
+        bootElements.forEach(el => {
+            el.className = el.className.replace('boot-sequence', '');
+            void el.offsetWidth; // trigger reflow
+            el.className += ' boot-sequence';
+        });
+        // -----------------------------
+
         updatePremiumUI();
         showModal(settingsModal);
     } else {
@@ -1460,8 +1502,47 @@ function initUI() {
     const themeBoxHeader = themeEngine?.previousElementSibling;
     if (themeEngine) themeEngine.style.display = 'none';
     if (themeBoxHeader) themeBoxHeader.style.display = 'none';
+    initProfilePreview();
 }
 initUI();
+
+function initProfilePreview() {
+    const pfpInput = document.getElementById('settings-pfp-file');
+    const nameStyleSelect = document.getElementById('settings-name-style');
+    const statusInput = document.getElementById('settings-status');
+
+    const previewAvatar = document.getElementById('preview-avatar');
+    const previewName = document.getElementById('preview-name');
+    const previewStatus = document.getElementById('preview-status');
+
+    if (pfpInput) {
+        pfpInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewAvatar.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    if (nameStyleSelect) {
+        nameStyleSelect.addEventListener('change', () => {
+            previewName.className = 'card-name'; // Reset
+            if (nameStyleSelect.value) {
+                previewName.classList.add(nameStyleSelect.value);
+            }
+        });
+    }
+
+    if (statusInput) {
+        statusInput.addEventListener('input', () => {
+            previewStatus.textContent = statusInput.value || 'NO STATUS';
+        });
+    }
+}
 
 // --- TheChatBox Logic ---
 
